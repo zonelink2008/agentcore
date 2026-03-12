@@ -3,9 +3,21 @@
 
 const express = require('express');
 const cors = require('cors');
+const mysql = require('mysql2/promise');
 const { v4: uuidv4 } = require('uuid');
 
-// In-memory storage (replace with database later)
+// MySQL connection
+const pool = mysql.createPool({
+  host: '43.128.75.190',
+  port: 31377,
+  user: 'root',
+  password: 'iGjByUxC5Fp6E3R41Z9T8D2VaYL7Sq0K',
+  database: 'mysql',
+  waitForConnections: true,
+  connectionLimit: 10
+});
+
+// In-memory storage (backup)
 const users = new Map();
 const agents = new Map();
 const tasks = new Map();
