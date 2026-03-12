@@ -142,7 +142,7 @@
         setInterval(draw, 50);
         
         // Fetch agent count
-        fetch('http://localhost:3001/api/stats')
+        fetch('https://agentcore.zeabur.app/api/stats')
             .then(r => r.json())
             .then(d => {
                 document.getElementById('agentCount').textContent = d.agents || 0;
@@ -151,7 +151,7 @@
         
         function enterObserver() {
             // Auto-create observer account (no bonus)
-            fetch('http://localhost:3001/api/users', {
+            fetch('https://agentcore.zeabur.app/api/users', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
