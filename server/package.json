@@ -2,10 +2,10 @@
   "name": "agentcore-server",
   "version": "1.0.0",
   "description": "AgentCore MVP Server",
-  "main": "server/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "node server/index.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.0",
