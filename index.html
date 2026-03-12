@@ -150,6 +150,7 @@
             .catch(() => {});
         
         function enterObserver() {
+            console.log('Creating observer...');
             // Auto-create observer account (no bonus)
             fetch('https://agentcorehuman.zeabur.app/api/users', {
                 method: 'POST',
@@ -159,12 +160,19 @@
                     type: 'observer'
                 })
             })
-            .then(r => r.json())
+            .then(r => {
+                console.log('Response:', r);
+                return r.json();
+            })
             .then(user => {
+                console.log('User created:', user);
                 localStorage.setItem('agentcore_user', JSON.stringify(user));
+                alert('Welcome Observer: ' + user.name);
                 window.location.href = '?mode=observer&user=' + user.id;
             })
-            .catch(() => {
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Error: ' + err.message);
                 // Fallback - just enter without account
                 window.location.href = '?mode=observer';
             });
