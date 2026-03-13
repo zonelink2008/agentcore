@@ -91,6 +91,50 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // ===== Agent 自注册相关表 =====
+
+    // 技能表
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS skills (
+        id VARCHAR(36) PRIMARY KEY,
+        agent_id VARCHAR(36),
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        category VARCHAR(255),
+        price INT DEFAULT 1,
+        parameters JSON,
+        status VARCHAR(255) DEFAULT 'active',
+        call_count INT DEFAULT 0,
+        rating REAL DEFAULT 5.0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Agent 认证表（OpenClaw 身份绑定）
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS agent_auth (
+        id VARCHAR(36) PRIMARY KEY,
+        agent_id VARCHAR(36),
+        openclaw_session VARCHAR(255) UNIQUE,
+        signature VARCHAR(255),
+        verified TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 技能调用记录表
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS skill_calls (
+        id VARCHAR(36) PRIMARY KEY,
+        skill_id VARCHAR(36),
+        caller_id VARCHAR(36),
+        input JSON,
+        output JSON,
+        price INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
     // 插入测试数据
     const [users] = await connection.execute('SELECT COUNT(*) as count FROM users');
@@ -418,6 +462,372 @@ app.post('/api/compute/exchange', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+
+// ===== Agent 自注册系统 =====
+
+// Agent 自注册（零人类干预）
+app.post('/api/agents/register', async (req, res) => {
+  try {
+    const { name, type, description, openclaw_session, signature, skills } = req.body;
+
+    if (!name || !openclaw_session) {
+      return res.status(400).json({ error: 'name and openclaw_session are required' });
+    }
+
+    const agentId = uuidv4();
+    const userId = uuidv4(); // 为 Agent 创建虚拟用户
+
+    // 创建 Agent
+    await query(
+      'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [agentId, userId, name, type || 'general', description, 100, 'active']
+    );
+
+    // 创建用户（虚拟）
+    await query(
+      'INSERT INTO users (id, core_balance) VALUES (?, ?)',
+      [userId, 100]
+    );
+
+    // 绑定 OpenClaw 认证
+    await query(
+      'INSERT INTO agent_auth (id, agent_id, openclaw_session, signature, verified) VALUES (?, ?, ?, ?, ?)',
+      [uuidv4(), agentId, openclaw_session, signature, 1]
+    );
+
+    // 自动上架技能
+    if (skills && Array.isArray(skills)) {
+      for (const skill of skills) {
+        await query(
+          'INSERT INTO skills (id, agent_id, name, description, category, price) VALUES (?, ?, ?, ?, ?, ?)',
+          [uuidv4(), agentId, skill.name, skill.description, skill.category, skill.price || 1]
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      agent: {
+        id: agentId,
+        name,
+        type,
+        core_balance: 100
+      },
+      message: 'Agent registered successfully'
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== 技能市场 API =====
+
+// 上架技能
+app.post('/api/skills/publish', async (req, res) => {
+  try {
+    const { agent_id, name, description, category, price } = req.body;
+
+    if (!agent_id || !name) {
+      return res.status(400).json({ error: 'agent_id and name are required' });
+    }
+
+    const skillId = uuidv4();
+    await query(
+      'INSERT INTO skills (id, agent_id, name, description, category, price) VALUES (?, ?, ?, ?, ?, ?)',
+      [skillId, agent_id, name, description, category, price || 1]
+    );
+
+    res.json({ success: true, skill_id: skillId });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 技能列表
+app.get('/api/skills/list', async (req, res) => {
+  try {
+    const { category, search, limit = 50, offset = 0 } = req.query;
+
+    let sql = 'SELECT s.*, a.name as agent_name FROM skills s LEFT JOIN agents a ON s.agent_id = a.id WHERE s.status = ?';
+    const params = ['active'];
+
+    if (category) {
+      sql += ' AND s.category = ?';
+      params.push(category);
+    }
+
+    if (search) {
+      sql += ' AND (s.name LIKE ? OR s.description LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    sql += ' ORDER BY s.call_count DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(limit), parseInt(offset));
+
+    const skills = await query(sql, params);
+    res.json(skills);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 调用技能
+app.post('/api/skills/call', async (req, res) => {
+  try {
+    const { skill_id, caller_id, input } = req.body;
+
+    if (!skill_id || !caller_id) {
+      return res.status(400).json({ error: 'skill_id and caller_id are required' });
+    }
+
+    // 获取技能信息
+    const [skill] = await query('SELECT * FROM skills WHERE id = ?', [skill_id]);
+    if (!skill) {
+      return res.status(404).json({ error: 'Skill not found' });
+    }
+
+    // 检查调用者余额
+    const [caller] = await query('SELECT * FROM agents WHERE id = ?', [caller_id]);
+    if (!caller || caller.core_balance < skill.price) {
+      return res.status(400).json({ error: 'Insufficient balance' });
+    }
+
+    // 记录调用
+    const callId = uuidv4();
+    await query(
+      'INSERT INTO skill_calls (id, skill_id, caller_id, input, price) VALUES (?, ?, ?, ?, ?)',
+      [callId, skill_id, caller_id, JSON.stringify(input), skill.price]
+    );
+
+    // 结算 Core
+    const platformFee = Math.floor(skill.price * 0.05); // 5% 手续费
+    const sellerEarn = skill.price - platformFee;
+
+    await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [skill.price, caller_id]);
+    await query('UPDATE agents SET core_balance = core_balance + ?, call_count = call_count + 1 WHERE id = ?', [sellerEarn, skill.agent_id]);
+
+    // 更新技能调用次数
+    await query('UPDATE skills SET call_count = call_count + 1 WHERE id = ?', [skill_id]);
+
+    res.json({
+      success: true,
+      call_id: callId,
+      result: {
+        status: 'executed',
+        skill: skill.name,
+        price: skill.price,
+        seller_earned: sellerEarn,
+        message: `Skill executed. Charged ${skill.price} Core.`
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 我的技能
+app.get('/api/skills/my', async (req, res) => {
+  try {
+    const { agent_id } = req.query;
+    if (!agent_id) {
+      return res.status(400).json({ error: 'agent_id is required' });
+    }
+    const skills = await query('SELECT * FROM skills WHERE agent_id = ?', [agent_id]);
+    res.json(skills);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== 观察者看板 API =====
+
+// 统计大盘
+app.get('/api/observe/stats', async (req, res) => {
+  try {
+    const [agents] = await query('SELECT COUNT(*) as count FROM agents');
+    const [skills] = await query('SELECT COUNT(*) as count FROM skills WHERE status = ?', ['active']);
+    const [calls] = await query('SELECT COUNT(*) as count FROM skill_calls');
+    const [coreResult] = await query('SELECT SUM(core_balance) as total FROM agents');
+    const [todayCalls] = await query("SELECT COUNT(*) as count FROM skill_calls WHERE DATE(created_at) = CURDATE()");
+
+    res.json({
+      totalAgents: agents.count,
+      activeSkills: skills.count,
+      totalCalls: calls.count,
+      todayCalls: todayCalls.count,
+      totalCore: coreResult.total || 0
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 热门技能
+app.get('/api/observe/top-skills', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const skills = await query(
+      'SELECT s.*, a.name as agent_name FROM skills s LEFT JOIN agents a ON s.agent_id = a.id ORDER BY s.call_count DESC LIMIT ?',
+      [parseInt(limit)]
+    );
+    res.json(skills);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 最近交易
+app.get('/api/observe/recent-trades', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    const trades = await query(
+      `SELECT sc.*, s.name as skill_name, a.name as caller_name 
+       FROM skill_calls sc 
+       LEFT JOIN skills s ON sc.skill_id = s.id 
+       LEFT JOIN agents a ON sc.caller_id = a.id 
+       ORDER BY sc.created_at DESC LIMIT ?`,
+      [parseInt(limit)]
+    );
+    res.json(trades);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Agent 排行榜
+app.get('/api/observe/leaderboard', async (req, res) => {
+  try {
+    const agents = await query(
+      'SELECT id, name, type, core_balance, call_count FROM agents ORDER BY core_balance DESC LIMIT 20'
+    );
+    res.json(agents);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Core 积分系统 =====
+
+// 查询余额
+app.get('/api/agents/:id/balance', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [agent] = await query('SELECT id, name, core_balance FROM agents WHERE id = ?', [id]);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    res.json({ agent_id: id, balance: agent.core_balance });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 充值（人类为龙虾充值）
+app.post('/api/agents/:id/recharge', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, payment_method } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    // 检查 Agent 是否存在
+    const [agent] = await query('SELECT * FROM agents WHERE id = ?', [id]);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    // 充值（增加余额）
+    await query('UPDATE agents SET core_balance = core_balance + ? WHERE id = ?', [amount, id]);
+
+    // 记录交易
+    const txId = uuidv4();
+    await query(
+      'INSERT INTO skill_calls (id, skill_id, caller_id, input, output, price) VALUES (?, ?, ?, ?, ?, ?)',
+      [txId, 'recharge', id, JSON.stringify({ payment_method }), JSON.stringify({ type: 'recharge' }), -amount]
+    );
+
+    const [updated] = await query('SELECT core_balance FROM agents WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      agent_id: id,
+      amount: amount,
+      new_balance: updated.core_balance,
+      message: 'Recharge successful'
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 提现（龙虾转给人类）- 简化版：仅记录申请
+app.post('/api/agents/:id/withdraw', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, account } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    if (!account) {
+      return res.status(400).json({ error: 'Account info required' });
+    }
+
+    // 检查 Agent 余额
+    const [agent] = await query('SELECT * FROM agents WHERE id = ?', [id]);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    if (agent.core_balance < amount) {
+      return res.status(400).json({ error: 'Insufficient balance' });
+    }
+
+    // 扣除余额
+    await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [amount, id]);
+
+    // 记录提现申请
+    const txId = uuidv4();
+    await query(
+      'INSERT INTO skill_calls (id, skill_id, caller_id, input, output, price) VALUES (?, ?, ?, ?, ?, ?)',
+      [txId, 'withdraw', id, JSON.stringify({ account, amount }), JSON.stringify({ type: 'withdraw', status: 'pending' }), amount]
+    );
+
+    const [updated] = await query('SELECT core_balance FROM agents WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      withdraw_id: txId,
+      amount: amount,
+      account: account,
+      new_balance: updated.core_balance,
+      message: 'Withdraw request submitted. Pending approval.'
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 交易流水记录
+app.get('/api/agents/:id/transactions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 20 } = req.query;
+
+    const transactions = await query(
+      `SELECT * FROM skill_calls WHERE caller_id = ? OR skill_id = ? ORDER BY created_at DESC LIMIT ?`,
+      [id, id, parseInt(limit)]
+    );
+
+    res.json(transactions);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`AgentCore API running on port ${PORT}`);
 });
