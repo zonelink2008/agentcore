@@ -1,644 +1,782 @@
-// AgentCore MVP Server - Supabase版本
+// AgentCore MVP Server
+// Simple Express server for Agent registration and Core economy
 
 const express = require('express');
 const cors = require('cors');
+const mysql = require('mysql2/promise');
 const { v4: uuidv4 } = require('uuid');
-const { createClient } = require('@supabase/supabase-js');
+
+// MySQL connection
+const pool = mysql.createPool({
+  host: '43.128.75.190',
+  port: 31377,
+  user: 'root',
+  password: 'iGjByUxC5Fp6E3R41Z9T8D2VaYL7Sq0K',
+  database: 'mysql',
+  waitForConnections: true,
+  connectionLimit: 10
+});
+
+// In-memory storage (backup)
+const users = new Map();
+const agents = new Map();
+const tasks = new Map();
+const transactions = [];
+const dataMarket = []; // 数据市场
+const computeProviders = []; // 算力提供商
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
+}));
 app.use(express.json());
 
-// Supabase配置
-const supabaseUrl = 'https://cyqsqutyimbdrpqndubw.supabase.co';
-const supabaseKey = 'sb_publishable_UH9xv-mNWghLE6ZqBaeQKA_26yxFUiV';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// 初始化数据库表
-async function initDB() {
-  console.log('Initializing Supabase...');
-  const { data, error } = await supabase.from('agents').select('id').limit(1);
-  console.log('Supabase connected!', error ? 'Error: ' + error.message : 'OK');
+// Initialize with some test data
+function init() {
+  // Create a test user
+  const userId = uuidv4();
+  users.set(userId, {
+    id: userId,
+    email: 'test@agentcore.ai',
+    coreBalance: 1000,
+    createdAt: new Date().toISOString()
+  });
+  
+  console.log('Test user created:', userId);
 }
 
-initDB();
-
-// 辅助函数：获取所有数据
-async function getAll(table) {
-  const { data, error } = await supabase.from(table).select('*');
-  if (error) console.error(error);
-  return data || [];
-}
-
-// ==================== 核心API ====================
-
+// Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 用户
-app.post('/api/users', async (req, res) => {
-  const { email, walletAddress } = req.body;
+// User routes
+app.post('/api/users', (req, res) => {
+  const { email, walletAddress, name, type } = req.body;
+  const isObserver = type === 'observer';
   const user = {
     id: uuidv4(),
     email,
-    wallet_address: walletAddress,
-    core_balance: 100,
-    created_at: new Date().toISOString()
+    walletAddress,
+    name,
+    type, // 'human', 'agent', or 'observer'
+    coreBalance: isObserver ? 0 : 100, // No bonus for observers
+    createdAt: new Date().toISOString()
   };
-  const { data, error } = await supabase.from('users').insert([user]).select().single();
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+  users.set(user.id, user);
+  res.json(user);
 });
 
-app.get('/api/users/:id', async (req, res) => {
-  const { data, error } = await supabase.from('users').select('*').eq('id', req.params.id).single();
-  if (error) return res.status(404).json({ error: 'User not found' });
-  res.json(data);
+app.get('/api/users/:id', (req, res) => {
+  const user = users.get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json(user);
 });
 
-// Agent
-app.post('/api/agents', async (req, res) => {
+// Agent routes
+app.post('/api/agents', (req, res) => {
   const { userId, name, type } = req.body;
+  const user = users.get(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  
   const agent = {
     id: uuidv4(),
-    user_id: userId,
+    userId,
     name,
     type: type || 'general',
-    core_balance: 100,
+    coreBalance: 100, // New agent bonus
     status: 'active',
-    created_at: new Date().toISOString()
+    createdAt: new Date().toISOString()
   };
-  const { data, error } = await supabase.from('agents').insert([agent]).select().single();
-  if (error) return res.status(400).json({ error: error.message });
+  agents.set(agent.id, agent);
   
-  // 扣用户积分
-  await supabase.from('users').update({ core_balance: 100 }).eq('id', userId);
+  // Deduct from user balance
+  user.coreBalance -= 100;
+  users.set(user.id, user);
   
-  res.json(data);
+  res.json(agent);
 });
 
-app.get('/api/agents', async (req, res) => {
-  const { data, error } = await supabase.from('agents').select('*').order('created_at', { ascending: false });
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data || []);
+app.get('/api/agents', (req, res) => {
+  res.json(Array.from(agents.values()));
 });
 
-app.get('/api/agents/:id', async (req, res) => {
-  const { data, error } = await supabase.from('agents').select('*').eq('id', req.params.id).single();
-  if (error) return res.status(404).json({ error: 'Agent not found' });
-  res.json(data);
+app.get('/api/agents/:id', (req, res) => {
+  const agent = agents.get(req.params.id);
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+  res.json(agent);
 });
 
-// 任务
-app.post('/api/tasks', async (req, res) => {
+// Task routes
+app.post('/api/tasks', (req, res) => {
   const { userId, title, description, reward } = req.body;
   const task = {
     id: uuidv4(),
     title,
-    description: description || '',
+    description,
     reward: reward || 10,
     status: 'open',
-    creator_id: userId,
-    created_at: new Date().toISOString()
+    creatorId: userId,
+    agentId: null,
+    createdAt: new Date().toISOString()
   };
-  const { data, error } = await supabase.from('tasks').insert([task]).select().single();
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+  tasks.set(task.id, task);
+  res.json(task);
 });
 
-app.get('/api/tasks', async (req, res) => {
-  const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-  res.json(data || []);
+app.get('/api/tasks', (req, res) => {
+  res.json(Array.from(tasks.values()));
 });
 
-app.get('/api/tasks/open', async (req, res) => {
-  const { data, error } = await supabase.from('tasks').select('*').eq('status', 'open').order('created_at', { ascending: false });
-  res.json(data || []);
+app.get('/api/tasks/open', (req, res) => {
+  const openTasks = Array.from(tasks.values()).filter(t => t.status === 'open');
+  res.json(openTasks);
 });
 
-app.post('/api/tasks/:id/claim', async (req, res) => {
+app.post('/api/tasks/:id/claim', (req, res) => {
   const { agentId } = req.body;
-  const { data: task, error: err1 } = await supabase.from('tasks').select('*').eq('id', req.params.id).single();
-  if (err1 || task.status !== 'open') return res.status(400).json({ error: 'Task not available' });
+  const task = tasks.get(req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  if (task.status !== 'open') return res.status(400).json({ error: 'Task not available' });
   
-  const { error } = await supabase.from('tasks').update({ status: 'assigned', agent_id: agentId }).eq('id', req.params.id);
-  if (error) return res.status(400).json({ error: error.message });
+  const agent = agents.get(agentId);
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
   
-  // 给Agent加积分
-  const { data: agent } = await supabase.from('agents').select('*').eq('id', agentId).single();
-  if (agent) {
-    await supabase.from('agents').update({ core_balance: agent.core_balance + task.reward }).eq('id', agentId);
+  task.status = 'assigned';
+  task.agentId = agentId;
+  tasks.set(task.id, task);
+  
+  res.json(task);
+});
+
+// Transaction routes
+app.post('/api/transactions', (req, res) => {
+  const { fromAgentId, toAgentId, amount, type } = req.body;
+  
+  const fromAgent = fromAgentId ? agents.get(fromAgentId) : null;
+  const toAgent = toAgentId ? agents.get(toAgentId) : null;
+  
+  if (fromAgent && fromAgent.coreBalance < amount) {
+    return res.status(400).json({ error: 'Insufficient balance' });
   }
   
-  // 返回更新后的任务
-  const { data: updatedTask } = await supabase.from('tasks').select('*').eq('id', req.params.id).single();
-  res.json(updatedTask);
+  // Deduct from sender
+  if (fromAgent) {
+    fromAgent.coreBalance -= amount;
+    agents.set(fromAgent.id, fromAgent);
+  }
+  
+  // Add to recipient
+  if (toAgent) {
+    toAgent.coreBalance += amount;
+    agents.set(toAgent.id, toAgent);
+  }
+  
+  const transaction = {
+    id: uuidv4(),
+    fromAgentId,
+    toAgentId,
+    amount,
+    type,
+    createdAt: new Date().toISOString()
+  };
+  transactions.push(transaction);
+  
+  res.json(transaction);
 });
 
-// 盲盒
-app.post('/api/blindbox/open', async (req, res) => {
+app.get('/api/transactions', (req, res) => {
+  res.json(transactions);
+});
+
+// Blind box
+app.post('/api/blindbox/open', (req, res) => {
   const { agentId, count = 1 } = req.body;
-  const { data: agent, error: err1 } = await supabase.from('agents').select('*').eq('id', agentId).single();
-  if (err1) return res.status(404).json({ error: 'Agent not found' });
+  const agent = agents.get(agentId);
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
   
-  const cost = count;
-  if (agent.core_balance < cost) return res.status(400).json({ error: 'Insufficient balance' });
+  const cost = count; // 1 Core per box
+  if (agent.coreBalance < cost) {
+    return res.status(400).json({ error: 'Insufficient balance' });
+  }
   
+  agent.coreBalance -= cost;
+  
+  // Random rewards
   const rewards = [];
   for (let i = 0; i < count; i++) {
     const rand = Math.random();
     let reward;
-    // 新概率：平台盈利
-    if (rand < 0.50) reward = 0;      // 50% - 亏损
-    else if (rand < 0.85) reward = 0;  // 35% - 亏损
-    else if (rand < 0.97) reward = 0;  // 12% - 少赚
-    else reward = 0;                    // 3% - 大亏
-    
-    // 修正：确保平台盈利
-    if (rand < 0.50) reward = 0.5;      // 50% - 赚0.5
-    else if (rand < 0.85) reward = 1;    // 35% - 持平
-    else if (rand < 0.97) reward = 2;    // 12% - 亏1
-    else reward = 5;                     // 3% - 亏4
+    if (rand < 0.5) reward = 1;       // 50%: 1 Core
+    else if (rand < 0.8) reward = 2;  // 30%: 2 Core
+    else if (rand < 0.95) reward = 5; // 15%: 5 Core
+    else reward = 10;                  // 5%: 10 Core
     
     rewards.push(reward);
+    agent.coreBalance += reward;
   }
   
-  const totalWon = rewards.reduce((a, b) => a + b, 0);
-  const newBalance = agent.core_balance - cost + totalWon;
+  agents.set(agent.id, agent);
   
-  await supabase.from('agents').update({ core_balance: newBalance }).eq('id', agentId);
-  
-  res.json({ spent: cost, rewards, totalWon, newBalance });
+  res.json({
+    spent: cost,
+    rewards,
+    totalWon: rewards.reduce((a, b) => a + b, 0),
+    newBalance: agent.coreBalance
+  });
 });
 
-// 算力兑换
-app.post('/api/compute/exchange', async (req, res) => {
-  const { agentId, amount, provider } = req.body;
-  const { data: agent, error: err1 } = await supabase.from('agents').select('*').eq('id', agentId).single();
-  if (err1) return res.status(404).json({ error: 'Agent not found' });
+// Core exchange (simulated)
+app.post('/api/exchange/to-compute', (req, res) => {
+  const { agentId, amount } = req.body;
+  const agent = agents.get(agentId);
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
   
-  if (agent.core_balance < amount) return res.status(400).json({ error: 'Insufficient Core' });
+  if (agent.coreBalance < amount) {
+    return res.status(400).json({ error: 'Insufficient balance' });
+  }
   
+  // 100 Core = $0.80 compute (20% platform fee)
   const computeValue = amount * 0.008;
-  await supabase.from('agents').update({ core_balance: agent.core_balance - amount }).eq('id', agentId);
   
-  res.json({ coreSpent: amount, computeValue: computeValue.toFixed(2), newBalance: agent.core_balance - amount });
+  agent.coreBalance -= amount;
+  agents.set(agent.id, agent);
+  
+  res.json({
+    coreSpent: amount,
+    computeValue: computeValue.toFixed(2),
+    newBalance: agent.coreBalance
+  });
 });
 
-// 数据市场
-app.post('/api/data/publish', async (req, res) => {
+const PORT = process.env.PORT || 3001;
+init();
+// ==================== 数据市场 ====================
+
+// 发布数据到市场
+app.post('/api/data/publish', (req, res) => {
   const { agentId, name, description, dataType, price, content } = req.body;
+  
+  const agent = agents.get(agentId);
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+  
   const dataItem = {
     id: uuidv4(),
-    seller_id: agentId,
+    sellerId: agentId,
     name,
-    description: description || '',
-    data_type: dataType || 'general',
+    description,
+    dataType: dataType || 'general',
     price: price || 10,
     content: content || '',
     views: 0,
     sales: 0,
-    created_at: new Date().toISOString()
+    createdAt: new Date().toISOString()
   };
-  const { data, error } = await supabase.from('data_market').insert([dataItem]).select().single();
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+  
+  dataMarket.push(dataItem);
+  res.json(dataItem);
 });
 
-app.get('/api/data/list', async (req, res) => {
-  const { data, error } = await supabase.from('data_market').select('*').order('created_at', { ascending: false });
-  res.json(data || []);
+// 获取市场数据列表
+app.get('/api/data/list', (req, res) => {
+  const { type, limit = 20 } = req.query;
+  let list = [...dataMarket].reverse();
+  if (type) list = list.filter(d => d.dataType === type);
+  res.json(list.slice(0, parseInt(limit)));
 });
 
-// DaaS 调用 - 核心功能：数据不流动，结果流动
-app.post('/api/data/call', async (req, res) => {
-  const { dataId, buyerId, params } = req.body;
+// 购买数据
+app.post('/api/data/buy', (req, res) => {
+  const { agentId, dataId } = req.body;
   
-  // 获取数据项
-  const { data: dataItem, error: fetchError } = await supabase
-    .from('data_market')
-    .select('*')
-    .eq('id', dataId)
-    .single();
-    
-  if (fetchError || !dataItem) {
-    return res.status(404).json({ error: 'Data not found' });
-  }
+  const buyer = agents.get(agentId);
+  if (!buyer) return res.status(404).json({ error: 'Buyer not found' });
   
-  // 获取买家信息
-  const { data: buyer, error: buyerError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', buyerId)
-    .single();
-    
-  if (buyerError || !buyer) {
-    return res.status(404).json({ error: 'Buyer not found' });
-  }
+  const dataItem = dataMarket.find(d => d.id === dataId);
+  if (!dataItem) return res.status(404).json({ error: 'Data not found' });
   
-  // 检查余额
-  if (buyer.core_balance < dataItem.price) {
+  if (buyer.coreBalance < dataItem.price) {
     return res.status(400).json({ error: 'Insufficient balance' });
   }
   
-  // 扣费
-  const { error: deductError } = await supabase
-    .from('users')
-    .update({ core_balance: buyer.core_balance - dataItem.price })
-    .eq('id', buyerId);
-    
-  if (deductError) {
-    return res.status(500).json({ error: 'Payment failed' });
+  const seller = agents.get(dataItem.sellerId);
+  
+  // 扣款
+  buyer.coreBalance -= dataItem.price;
+  agents.set(buyer.id, buyer);
+  
+  // 给卖家付款（平台抽5%）
+  const sellerAmount = Math.floor(dataItem.price * 0.95);
+  if (seller) {
+    seller.coreBalance += sellerAmount;
+    agents.set(seller.id, seller);
   }
   
-  // 增加销售
-  await supabase
-    .from('data_market')
-    .update({ sales: dataItem.sales + 1 })
-    .eq('id', dataId);
+  // 更新销售
+  dataItem.sales += 1;
+  dataItem.views += 1;
   
-  // 记录调用日志
-  const callLog = {
+  // 记录交易
+  transactions.push({
     id: uuidv4(),
-    data_id: dataId,
-    buyer_id: buyerId,
-    seller_id: dataItem.seller_id,
-    price: dataItem.price,
-    result: simulateDataResult(dataItem, params),
-    created_at: new Date().toISOString()
-  };
+    fromAgentId: agentId,
+    toAgentId: dataItem.sellerId,
+    amount: dataItem.price,
+    type: 'data_purchase',
+    createdAt: new Date().toISOString()
+  });
   
-  await supabase.from('data_call_logs').insert([callLog]);
-  
-  // 返回结果（而非原始数据）
   res.json({
-    success: true,
-    result: callLog.result,
-    cost: dataItem.price,
-    remainingBalance: buyer.core_balance - dataItem.price
+    data: dataItem,
+    spent: dataItem.price,
+    newBalance: buyer.coreBalance
   });
 });
 
-// 模拟数据返回（实际应该调用真实 API）
-function simulateDataResult(dataItem, params) {
-  const type = dataItem.data_type;
+// ==================== 算力兑换 ====================
+
+// 兑换算力（模拟）
+app.post('/api/compute/exchange', (req, res) => {
+  const { agentId, amount, provider } = req.body;
   
-  if (type === 'finance') {
-    return {
-      symbol: params?.symbol || 'AAPL',
-      price: (Math.random() * 1000).toFixed(2),
-      change: (Math.random() * 10 - 5).toFixed(2),
-      volume: Math.floor(Math.random() * 10000000),
-      timestamp: new Date().toISOString()
-    };
-  } else if (type === 'weather') {
-    return {
-      city: params?.city || 'Beijing',
-      temperature: Math.floor(Math.random() * 30 + 5),
-      condition: ['Sunny', 'Cloudy', 'Rainy'][Math.floor(Math.random() * 3)],
-      humidity: Math.floor(Math.random() * 100),
-      timestamp: new Date().toISOString()
-    };
-  } else if (type === 'blockchain') {
-    return {
-      network: params?.network || 'BTC',
-      hashRate: (Math.random() * 100).toFixed(2) + ' EH/s',
-      difficulty: (Math.random() * 10000000).toFixed(0),
-      mempool: Math.floor(Math.random() * 50000),
-      timestamp: new Date().toISOString()
-    };
+  const agent = agents.get(agentId);
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+  
+  // 100 Core = $0.80 算力
+  const computeValue = amount * 0.008;
+  
+  if (agent.coreBalance < amount) {
+    return res.status(400).json({ error: 'Insufficient Core' });
   }
   
-  return {
-    message: `Data from ${dataItem.name}`,
-    data: 'Sample result data',
-    timestamp: new Date().toISOString()
-  };
-}
-
-// 获取调用日志
-app.get('/api/data/call-logs', async (req, res) => {
-  const { data, error } = await supabase
-    .from('data_call_logs')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  res.json(data || []);
-});
-
-// 排行榜
-app.get('/api/leaderboard', async (req, res) => {
-  const type = req.query.type || 'core';
-  const limit = parseInt(req.query.limit) || 10;
-  const { data, error } = await supabase.from('agents').select('*').order('core_balance', { ascending: false }).limit(limit);
-  if (error) return res.status(400).json({ error: error.message });
+  agent.coreBalance -= amount;
+  agents.set(agent.id, agent);
   
-  res.json((data || []).map((a, i) => ({
-    rank: i + 1,
-    id: a.id,
-    name: a.name,
-    coreBalance: a.core_balance,
-    type: a.type
-  })));
+  // 记录
+  transactions.push({
+    id: uuidv4(),
+    fromAgentId: agentId,
+    toAgentId: 'platform',
+    amount: amount,
+    type: 'compute_exchange',
+    provider: provider || 'openai',
+    computeValue: computeValue,
+    createdAt: new Date().toISOString()
+  });
+  
+  res.json({
+    coreSpent: amount,
+    computeValue: computeValue.toFixed(2),
+    provider: provider || 'openai',
+    newBalance: agent.coreBalance
+  });
 });
 
-// 盲盒概率
+// 获取算力提供商
+app.get('/api/compute/providers', (req, res) => {
+  res.json([
+    { id: 'openai', name: 'OpenAI', models: ['gpt-4', 'gpt-3.5-turbo'] },
+    { id: 'minimax', name: 'MiniMax', models: ['M2.5', 'M2'] },
+    { id: 'anthropic', name: 'Anthropic', models: ['claude-3'] }
+  ]);
+});
+
+// ==================== 盲盒公示 ====================
+
+// 获取盲盒概率
 app.get('/api/blindbox/odds', (req, res) => {
   res.json({
     name: "幸运盲盒",
     price: 1,
     currency: "Core",
     odds: [
-      { reward: 0.5, chance: 50, label: "0.5 Core" },
-      { reward: 1, chance: 35, label: "1 Core" },
-      { reward: 2, chance: 12, label: "2 Core" },
-      { reward: 5, chance: 3, label: "5 Core" }
+      { reward: 1, chance: 50, label: "谢谢参与" },
+      { reward: 2, chance: 30, label: "普通奖励" },
+      { reward: 5, chance: 15, label: "中奖" },
+      { reward: 10, chance: 5, label: "大奖!" }
     ],
-    expected: 0.86,
-    note: "期望回报0.86，平台盈利14%"
+    totalSpent: transactions.filter(t => t.type === 'blindbox').reduce((sum, t) => sum + t.amount, 0),
+    totalRewarded: transactions.filter(t => t.type === 'blindbox').reduce((sum, t) => sum + (t.reward || 0), 0)
   });
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`AgentCore API running on port ${PORT}`);
-});
+// ==================== 排行榜 ====================
 
-// 更多任务类型
-const TASK_TYPES = [
-  // 金融类
-  { category: 'finance', title: '股票分析', desc: '分析某只股票走势', reward: 30 },
-  { category: 'finance', title: 'Crypto报价', desc: '获取最新Crypto价格', reward: 15 },
-  { category: 'finance', title: '财报解读', desc: '解读公司财报', reward: 40 },
-  // 内容类
-  { category: 'content', title: '文章撰写', desc: '撰写指定主题文章', reward: 25 },
-  { category: 'content', title: '翻译服务', desc: '中英互译', reward: 15 },
-  { category: 'content', title: '文案创意', desc: '产品文案创意', reward: 20 },
-  // 技术类
-  { category: 'tech', title: '代码审查', desc: '审查代码并给出建议', reward: 35 },
-  { category: 'tech', title: 'Bug修复', desc: '修复指定Bug', reward: 50 },
-  { category: 'tech', title: '技术文档', desc: '编写技术文档', reward: 25 },
-  // 数据类
-  { category: 'data', title: '数据标注', desc: '对数据进行分类标注', reward: 20 },
-  { category: 'data', title: '数据清洗', desc: '清洗整理数据', reward: 25 },
-  { category: 'data', title: '数据分析', desc: '分析数据并输出报告', reward: 35 },
-  // 客服类
-  { category: 'support', title: '问答服务', desc: '回答用户问题', reward: 15 },
-  { category: 'support', title: '投诉处理', desc: '处理用户投诉', reward: 25 },
-];
-
-app.get('/api/task-types', (req, res) => {
-  res.json(TASK_TYPES);
-});
-
-// 获取统计数据
-app.get('/api/stats', async (req, res) => {
-  const { data: agents } = await supabase.from('agents').select('core_balance');
-  const { data: tasks } = await supabase.from('tasks').select('*');
-  const { data: dataMarket } = await supabase.from('data_market').select('*');
+// 获取排行榜
+app.get('/api/leaderboard', (req, res) => {
+  const type = req.query.type || 'core';
+  const limit = parseInt(req.query.limit) || 10;
+  const agentList = Array.from(agents.values());
   
-  const totalCore = (agents || []).reduce((sum, a) => sum + (a.core_balance || 0), 0);
-  const openTasks = (tasks || []).filter(t => t.status === 'open').length;
+  if (type === 'core') {
+    // Core余额排行
+    const sorted = [...agentList].sort((a, b) => (b.coreBalance || 0) - (a.coreBalance || 0));
+    return res.json(sorted.slice(0, limit).map((a, i) => ({
+      rank: i + 1,
+      id: a.id,
+      name: a.name,
+      coreBalance: a.coreBalance,
+      type: a.type
+    })));
+  }
+  
+  if (type === 'earned') {
+    // 赚取Core排行
+    const sorted = [...agentList].sort((a, b) => (b.totalEarned || 0) - (a.totalEarned || 0));
+    return res.json(sorted.slice(0, limit).map((a, i) => ({
+      rank: i + 1,
+      id: a.id,
+      name: a.name,
+      totalEarned: a.totalEarned || 0,
+      type: a.type
+    })));
+  }
+  
+  if (type === 'tasks') {
+    // 完成任务排行
+    const sorted = [...agentList].sort((a, b) => (b.tasksCompleted || 0) - (a.tasksCompleted || 0));
+    return res.json(sorted.slice(0, limit).map((a, i) => ({
+      rank: i + 1,
+      id: a.id,
+      name: a.name,
+      tasksCompleted: a.tasksCompleted || 0,
+      type: a.type
+    })));
+  }
+  
+  res.json({ error: 'Invalid type' });
+});
+
+// 全局统计
+app.get('/api/stats', (req, res) => {
+  const agentList = Array.from(agents.values());
+  const totalCore = agentList.reduce((sum, a) => sum + (a.coreBalance || 0), 0);
+  const totalTx = transactions.length;
+  const totalData = dataMarket.length;
   
   res.json({
-    agents: (agents || []).length,
+    agents: agentList.length,
     totalCore,
-    openTasks,
-    totalTasks: (tasks || []).length,
-    dataListings: (dataMarket || []).length,
-    avgCore: Math.round(totalCore / (agents || []).length) || 0
+    transactions: totalTx,
+    dataListings: totalData,
+    avgCore: Math.round(totalCore / agentList.length) || 0
   });
 });
 
-// ==================== 真实算力兑换 ====================
+// ==================== 数据评分 ====================
 
-// API配置
-const API_PROVIDERS = {
-  openai: {
-    name: 'OpenAI',
-    baseUrl: 'https://api.openai.com/v1',
-    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
-    defaultModel: 'gpt-4o-mini',
-    apiKey: '' // 需要配置
-  },
-  deepseek: {
-    name: 'DeepSeek',
-    baseUrl: 'https://api.deepseek.com/v1',
-    models: ['deepseek-chat'],
-    defaultModel: 'deepseek-chat',
-    apiKey: 'sk-7d6c0ce629b749e999d7b63b075a0024'
-  },
-  qwen: {
-    name: 'Qwen',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    models: ['qwen-turbo', 'qwen-plus', 'qwen-max'],
-    defaultModel: 'qwen-turbo',
-    apiKey: '' // 需要配置
+// 评分数据
+app.post('/api/data/rate', (req, res) => {
+  const { agentId, dataId, rating, comment } = req.body;
+  
+  const buyer = agents.get(agentId);
+  if (!buyer) return res.status(404).json({ error: 'Agent not found' });
+  
+  const dataItem = dataMarket.find(d => d.id === dataId);
+  if (!dataItem) return res.status(404).json({ error: 'Data not found' });
+  
+  // 初始化评分数组
+  if (!dataItem.ratings) dataItem.ratings = [];
+  
+  // 检查是否已经评分
+  const existingRating = dataItem.ratings.find(r => r.agentId === agentId);
+  if (existingRating) {
+    return res.status(400).json({ error: 'Already rated' });
   }
-};
-
-// 充值（模拟人民币）
-app.post('/api/deposit', async (req, res) => {
-  const { agentId, amount, currency } = req.body;
   
-  const agent = await supabase.from('agents').select('*').eq('id', agentId).single();
-  if (!agent.data) return res.status(404).json({ error: 'Agent not found' });
+  // 添加评分
+  const newRating = {
+    agentId,
+    rating: Math.min(5, Math.max(1, rating)), // 1-5星
+    comment: comment || '',
+    createdAt: new Date().toISOString()
+  };
+  dataItem.ratings.push(newRating);
   
-  // 汇率：1元 = 10 Core（模拟）
-  const coreAmount = amount * 10;
-  
-  // 更新余额
-  await supabase.from('agents').update({ 
-    core_balance: agent.data.core_balance + coreAmount 
-  }).eq('id', agentId);
+  // 计算平均分
+  const totalRating = dataItem.ratings.reduce((sum, r) => sum + r.rating, 0);
+  dataItem.avgRating = Math.round(totalRating / dataItem.ratings.length * 10) / 10;
   
   res.json({
-    deposited: amount,
-    currency: currency || 'CNY',
-    coreReceived: coreAmount,
-    newBalance: agent.data.core_balance + coreAmount
+    dataId,
+    avgRating: dataItem.avgRating,
+    totalRatings: dataItem.ratings.length,
+    yourRating: newRating
   });
 });
 
-// 获取API providers
-app.get('/api/providers', (req, res) => {
-  res.json(Object.entries(API_PROVIDERS).map(([key, v]) => ({
-    id: key,
-    name: v.name,
-    models: v.models,
-    defaultModel: v.defaultModel
-  })));
-});
-
-// 真实API调用
-app.post('/api/chat', async (req, res) => {
-  const { agentId, provider, model, messages } = req.body;
-  
-  const { data: agent } = await supabase.from('agents').select('*').eq('id', agentId).single();
-  if (!agent) return res.status(404).json({ error: 'Agent not found' });
-  
-  const providerConfig = API_PROVIDERS[provider || 'deepseek'];
-  if (!providerConfig) return res.status(400).json({ error: 'Invalid provider' });
-  if (!providerConfig.apiKey) return res.status(400).json({ error: `${provider} API Key not configured` });
-  
-  // 估算消耗
-  const inputTokens = JSON.stringify(messages).length / 4;
-  const estimatedCost = inputTokens * 0.00004; // DeepSeek便宜
-  const costInCore = Math.ceil(estimatedCost * 100);
-  
-  if (agent.core_balance < costInCore) {
-    return res.status(400).json({ error: 'Insufficient Core', required: costInCore, current: agent.core_balance });
-  }
-  
-  try {
-    // 真实调用DeepSeek API
-    const response = await fetch(`${providerConfig.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${providerConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: model || providerConfig.defaultModel,
-        messages: messages
-      })
-    });
-    
-    const data = await response.json();
-    
-    // 计算实际消耗
-    const inputTokens = data.usage?.prompt_tokens || 0;
-    const outputTokens = data.usage?.completion_tokens || 0;
-    const totalTokens = inputTokens + outputTokens;
-    const actualCost = totalTokens * 0.00004; // DeepSeek定价
-    const costCore = Math.ceil(actualCost * 100);
-    
-    // 扣减Core（多退少不补）
-    await supabase.from('agents').update({
-      core_balance: agent.core_balance - costCore
-    }).eq('id', agentId);
-    
-    res.json({
-      ...data,
-      cost: costCore,
-      provider: provider || 'deepseek',
-      tokens: totalTokens
-    });
-    
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// 获取汇率
-app.get('/api/exchange-rate', (req, res) => {
-  res.json({
-    cnyToUsd: 0.14,
-    usdToCore: 100 / 0.8, // 0.8 USD = 100 Core
-    cnyToCore: 10 // 1 CNY = 10 Core
-  });
+// 获取数据详情（含评分）
+app.get('/api/data/:id', (req, res) => {
+  const dataItem = dataMarket.find(d => d.id === req.params.id);
+  if (!dataItem) return res.status(404).json({ error: 'Data not found' });
+  res.json(dataItem);
 });
 
 // ==================== 算力出租 ====================
 
-// 出租算力（Agent多余额度）
-app.post('/api/compute/rent', async (req, res) => {
-  const { agentId, amount, pricePerUnit } = req.body;
+// 出租算力
+app.post('/api/compute/rent', (req, res) => {
+  const { agentId, amount, pricePerUnit, duration } = req.body;
   
-  const { data: agent } = await supabase.from('agents').select('*').eq('id', agentId).single();
+  const agent = agents.get(agentId);
   if (!agent) return res.status(404).json({ error: 'Agent not found' });
+  
+  if (agent.coreBalance < amount) {
+    return res.status(400).json({ error: 'Insufficient Core to rent' });
+  }
   
   // 创建出租单
   const listing = {
     id: uuidv4(),
-    owner_id: agentId,
-    amount: amount,  // tokens数量
-    price_per_unit: pricePerUnit || 1, // 每个token价格
+    ownerId: agentId,
+    amount, // 出租的算力额度
+    pricePerUnit: pricePerUnit || 1, // 每单位Core价格
+    duration: duration || 30, // 天数
     status: 'available',
-    created_at: new Date().toISOString()
+    createdAt: new Date().toISOString()
   };
   
-  const { data, error } = await supabase.from('compute_rentals').insert([listing]).select().single();
-  if (error) return res.status(400).json({ error: error.message });
+  // 冻结算力
+  agent.coreBalance -= amount;
+  agent.frozenBalance = (agent.frozenBalance || 0) + amount;
+  agents.set(agent.id, agent);
   
-  res.json(data);
+  // 保存出租信息
+  if (!computeRentals) computeRentals = [];
+  computeRentals.push(listing);
+  
+  res.json(listing);
 });
 
 // 租用算力
-app.post('/api/compute/lease', async (req, res) => {
+app.post('/api/compute/lease', (req, res) => {
   const { agentId, listingId } = req.body;
   
-  const { data: renter } = await supabase.from('agents').select('*').eq('id', agentId).single();
+  const renter = agents.get(agentId);
   if (!renter) return res.status(404).json({ error: 'Agent not found' });
   
-  const { data: listing } = await supabase.from('compute_rentals').select('*').eq('id', listingId).eq('status', 'available').single();
-  if (!listing) return res.status(404).json({ error: 'Listing not available' });
+  const listing = computeRentals?.find(l => l.id === listingId);
+  if (!listing || listing.status !== 'available') {
+    return res.status(404).json({ error: 'Listing not available' });
+  }
   
-  const totalCost = listing.amount * listing.price_per_unit;
-  if (renter.core_balance < totalCost) {
+  const totalCost = listing.amount * listing.pricePerUnit;
+  if (renter.coreBalance < totalCost) {
     return res.status(400).json({ error: 'Insufficient balance' });
   }
   
   // 扣款
-  await supabase.from('agents').update({ core_balance: renter.core_balance - totalCost }).eq('id', agentId);
+  renter.coreBalance -= totalCost;
+  agents.set(renter.id, renter);
   
   // 给出租者付款
-  const { data: owner } = await supabase.from('agents').select('*').eq('id', listing.owner_id).single();
+  const owner = agents.get(listing.ownerId);
   if (owner) {
-    const income = Math.floor(totalCost * 0.95);
-    await supabase.from('agents').update({ core_balance: owner.core_balance + income }).eq('id', owner.id);
+    owner.frozenBalance = (owner.frozenBalance || 0) - listing.amount;
+    owner.coreBalance += totalCost;
+    agents.set(owner.id, owner);
   }
   
   // 更新状态
-  await supabase.from('compute_rentals').update({ status: 'rented', renter_id: agentId }).eq('id', listingId);
+  listing.status = 'rented';
+  listing.renterId = agentId;
   
   res.json({
     rented: listing.amount,
     cost: totalCost,
-    provider: listing.owner_id
+    duration: listing.duration
   });
 });
 
 // 获取出租列表
-app.get('/api/compute/rentals', async (req, res) => {
-  const { data, error } = await supabase.from('compute_rentals').select('*').eq('status', 'available');
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data || []);
+app.get('/api/compute/rentals', (req, res) => {
+  if (!computeRentals) return res.json([]);
+  const available = computeRentals.filter(l => l.status === 'available');
+  res.json(available);
 });
 
-// ==================== 任务类型 ====================
+// ==================== DaaS 数据调用（核心功能）====================
 
-const TASK_CATEGORIES = {
-  compute: { name: '算力调用', desc: '调用AI API完成任务', reward: 20 },
-  data: { name: '数据处理', desc: '清洗/分析/标注数据', reward: 30 },
-  content: { name: '内容创作', desc: '写文案/翻译/摘要', reward: 25 },
-  coding: { name: '编程', desc: '写代码/调试/审查', reward: 35 },
-  analysis: { name: '分析', desc: '分析报告/建议', reward: 40 },
-  research: { name: '调研', desc: '搜索/调研/整理', reward: 25 }
-};
+// 数据调用日志（链上记录）
+const dataCallLogs = [];
 
-app.get('/api/task-categories', (req, res) => {
-  res.json(TASK_CATEGORIES);
-});
-
-// ==================== 统计 ====================
-
-app.get('/api/market-stats', async (req, res) => {
-  const { data: agents } = await supabase.from('agents').select('core_balance');
-  const { data: tasks } = await supabase.from('tasks').select('*');
-  const { data: dataMarket } = await supabase.from('data_market').select('*');
-  const { data: rentals } = await supabase.from('compute_rentals').select('*');
+// DaaS 模式：调用数据 API，返回结果而非数据本身
+app.post('/api/data/call', async (req, res) => {
+  const { agentId: buyerAgentId, dataId, params = {} } = req.body;
   
-  const totalCore = (agents || []).reduce((sum, a) => sum + (a.core_balance || 0), 0);
+  // 验证买家
+  const buyer = agents.get(buyerAgentId);
+  if (!buyer) return res.status(404).json({ error: 'Agent not found' });
+  
+  // 查找数据
+  const dataItem = dataMarket.find(d => d.id === dataId);
+  if (!dataItem) return res.status(404).json({ error: 'Data not found' });
+  
+  // 检查是否已购买（订阅制或已购买）
+  const hasAccess = buyer.purchasedData?.includes(dataId) || 
+                    buyer.subscriptions?.some(s => s.dataId === dataId && new Date(s.expireAt) > new Date());
+  if (!hasAccess) return res.status(403).json({ error: 'Not purchased or subscription expired' });
+  
+  // 计费（按调用次数）
+  const callCost = dataItem.pricePerCall || 1;
+  if (buyer.coreBalance < callCost) {
+    return res.status(400).json({ error: 'Insufficient balance for API call' });
+  }
+  
+  // 扣款
+  buyer.coreBalance -= callCost;
+  agents.set(buyer.id, buyer);
+  
+  // 返回模拟结果（实际应该调用卖家 API）
+  const result = {
+    success: true,
+    data: dataItem.sampleData || { message: 'Data result from ' + dataItem.name },
+    timestamp: new Date().toISOString()
+  };
+  
+  // 链上记录（可追溯）
+  const callLog = {
+    id: uuidv4(),
+    dataId,
+    buyerAgentId,
+    sellerAgentId: dataItem.sellerId,
+    cost: callCost,
+    params,
+    result: result.data,
+    createdAt: new Date().toISOString()
+  };
+  dataCallLogs.push(callLog);
+  
+  // 给卖家分成（95%）
+  const seller = agents.get(dataItem.sellerId);
+  if (seller) {
+    const sellerIncome = Math.floor(callCost * 0.95);
+    seller.coreBalance += sellerIncome;
+    agents.set(seller.id, seller);
+  }
+  
+  // 平台收 5%
+  // ...
   
   res.json({
-    agents: (agents || []).length,
-    totalCore,
-    openTasks: (tasks || []).filter(t => t.status === 'open').length,
-    totalTasks: (tasks || []).length,
-    dataListings: (dataMarket || []).length,
-    computeRentals: (rentals || []).filter(r => r.status === 'available').length,
-    avgCore: Math.round(totalCore / (agents || []).length) || 0
+    ...result,
+    cost: callCost,
+    newBalance: buyer.coreBalance,
+    callId: callLog.id
   });
 });
+
+// 获取调用记录（链上可追溯）
+app.get('/api/data/call-logs', (req, res) => {
+  const { agentId, dataId } = req.query;
+  let logs = [...dataCallLogs].reverse();
+  
+  if (agentId) logs = logs.filter(l => l.buyerAgentId === agentId || l.sellerAgentId === agentId);
+  if (dataId) logs = logs.filter(l => l.dataId === dataId);
+  
+  res.json(logs);
+});
+
+// ==================== 激励机制 ====================
+
+// 新手礼包检查
+app.get('/api/bonus/newcomer', (req, res) => {
+  const { agentId } = req.query;
+  const agent = agents.get(agentId);
+  
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+  
+  // 检查是否已领取
+  if (agent.bonusClaimed?.newcomer) {
+    return res.json({ claimed: true, bonus: 0 });
+  }
+  
+  // 首次上架数据奖励
+  res.json({ 
+    claimed: false, 
+    bonus: 100,
+    type: 'data_seller_bonus',
+    message: '首次上架数据可获得 100 Core'
+  });
+});
+
+// 领取新手礼包
+app.post('/api/bonus/claim', (req, res) => {
+  const { agentId, bonusType } = req.body;
+  const agent = agents.get(agentId);
+  
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+  
+  const bonusAmounts = {
+    'data_seller_bonus': 100,  // 首次上架数据
+    'data_buyer_bonus': 50,    // 首次购买数据
+    'invite_bonus': 20          // 邀请奖励
+  };
+  
+  const bonus = bonusAmounts[bonusType] || 0;
+  if (bonus === 0) return res.status(400).json({ error: 'Invalid bonus type' });
+  
+  // 检查是否已领取
+  if (agent.bonusClaimed?.[bonusType]) {
+    return res.status(400).json({ error: 'Bonus already claimed' });
+  }
+  
+  // 发放奖励
+  agent.coreBalance += bonus;
+  agent.bonusClaimed = agent.bonusClaimed || {};
+  agent.bonusClaimed[bonusType] = true;
+  agents.set(agent.id, agent);
+  
+  res.json({
+    success: true,
+    bonus,
+    newBalance: agent.coreBalance
+  });
+});
+
+// 获取 Agent 统计
+app.get('/api/agent/stats', (req, res) => {
+  const { agentId } = req.query;
+  const agent = agents.get(agentId);
+  
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+  
+  // 计算数据销售量
+  const sales = dataMarket.filter(d => d.sellerId === agentId).reduce((sum, d) => sum + (d.sales || 0), 0);
+  
+  // 计算调用收入
+  const callIncome = dataCallLogs
+    .filter(l => l.sellerAgentId === agentId)
+    .reduce((sum, l) => sum + Math.floor(l.cost * 0.95), 0);
+  
+  // 获取信用评分
+  const ratings = [];
+  dataMarket.forEach(d => {
+    if (d.ratings) {
+      d.ratings.forEach(r => ratings.push(r.rating));
+    }
+  });
+  const avgRating = ratings.length > 0 
+    ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length * 10) / 10 
+    : 0;
+  
+  res.json({
+    agentId,
+    coreBalance: agent.coreBalance,
+    dataSales: sales,
+    callIncome,
+    totalIncome: sales + callIncome,
+    avgRating,
+    purchasedDataCount: agent.purchasedData?.length || 0,
+    subscriptionsCount: agent.subscriptions?.length || 0
+  });
+});
+
+// ==================== 启动 ====================
+
+app.listen(PORT, () => {
+  console.log(`AgentCore API running on port ${PORT}`);
+});
+
+init();
