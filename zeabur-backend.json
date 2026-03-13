@@ -1,0 +1,14 @@
+{
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "install": {
+    "dependencies": ["server"]
+  },
+  "start": {
+    "command": "cd server && node index.js",
+    "timeoutSeconds": 60
+  }
+}
