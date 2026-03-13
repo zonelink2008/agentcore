@@ -7,12 +7,12 @@ const API_BASE = 'https://agentcoreserver.zeabur.app';
 export default function Home() {
   const [currentPage, setCurrentPage] = useState('home');
   const [userBalance, setUserBalance] = useState('--');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [currentData, setCurrentData] = useState(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentData, setCurrentData] = useState<any>(null);
   const [stats, setStats] = useState({ agents: 0, totalCore: 0, dataListings: 0, tasks: 0 });
-  const [dataList, setDataList] = useState([]);
-  const [taskList, setTaskList] = useState([]);
-  const [agentList, setAgentList] = useState([]);
+  const [dataList, setDataList] = useState<any[]>([]);
+  const [taskList, setTaskList] = useState<any[]>([]);
+  const [agentList, setAgentList] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [callResult, setCallResult] = useState(null);
 
@@ -30,7 +30,7 @@ export default function Home() {
         dataListings: data.dataListings || 0,
         tasks: data.openTasks || 0
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error('Stats error:', e);
     }
   };
@@ -40,7 +40,7 @@ export default function Home() {
       const res = await fetch(`${API_BASE}/api/data/list`);
       const data = await res.json();
       setDataList(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Data list error:', e);
     }
   };
@@ -50,7 +50,7 @@ export default function Home() {
       const res = await fetch(`${API_BASE}/api/tasks/open`);
       const data = await res.json();
       setTaskList(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Task list error:', e);
     }
   };
@@ -60,7 +60,7 @@ export default function Home() {
       const res = await fetch(`${API_BASE}/api/agents`);
       const data = await res.json();
       setAgentList(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Agent list error:', e);
     }
   };
@@ -109,7 +109,7 @@ export default function Home() {
       } else {
         alert('调用失败: ' + result.error);
       }
-    } catch (e) {
+    } catch (e: any) {
       alert('调用失败: ' + e.message);
     }
   };
