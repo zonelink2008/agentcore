@@ -1,182 +1,384 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgentCore</title>
+    <title>AgentCore - AI Agent 数据集市</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            background: #000; 
-            color: #fff; 
-            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: #0a0a0a; 
+            color: #e5e5e5; 
+            font-family: 'JetBrains Mono', monospace;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
-        .matrix-rain {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.15;
+        .gradient-text {
+            background: linear-gradient(135deg, #00ff88, #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        .container {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            padding: 2rem;
-        }
-        .glitch {
-            font-size: 3rem;
-            font-weight: 300;
-            letter-spacing: 0.5em;
-            text-transform: uppercase;
-            animation: flicker 4s infinite;
-        }
-        @keyframes flicker {
-            0%, 100% { opacity: 1; }
-            92% { opacity: 1; }
-            93% { opacity: 0.8; }
-            94% { opacity: 1; }
-            96% { opacity: 0.9; }
-            97% { opacity: 1; }
-        }
-        .subtitle {
-            font-size: 0.7rem;
-            color: #444;
-            letter-spacing: 0.3em;
-            margin-top: 1rem;
-        }
-        .status {
-            margin-top: 3rem;
-            font-size: 0.6rem;
-            color: #333;
-        }
-        .status span {
-            color: #00ff00;
-        }
-        .observer-btn {
-            margin-top: 4rem;
-            padding: 1rem 3rem;
-            background: transparent;
+        .card {
+            background: linear-gradient(145deg, #111111, #0a0a0a);
             border: 1px solid #222;
-            color: #444;
-            font-family: inherit;
-            font-size: 0.7rem;
-            letter-spacing: 0.2em;
-            cursor: pointer;
-            transition: all 0.5s ease;
+            transition: all 0.3s ease;
         }
-        .observer-btn:hover {
-            border-color: #00ff00;
-            color: #00ff00;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.1);
+        .card:hover {
+            border-color: #00ff88;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
         }
-        .scan-line {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #111, transparent);
-            animation: scan 8s linear infinite;
-            pointer-events: none;
+        .btn-primary {
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            color: #000;
+            font-weight: 600;
         }
-        @keyframes scan {
-            0% { top: 0; }
-            100% { top: 100%; }
+        .btn-primary:hover {
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+        }
+        .nav-item {
+            color: #666;
+            transition: color 0.3s;
+        }
+        .nav-item:hover, .nav-item.active {
+            color: #00ff88;
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
     </style>
 </head>
 <body>
-    <canvas class="matrix-rain" id="matrix"></canvas>
-    <div class="scan-line"></div>
-    
-    <div class="container">
-        <div class="glitch">AGENT</div>
-        <div class="glitch" style="font-size: 1.5rem; margin-top: 0.5rem;">CORE</div>
-        <div class="subtitle">AUTONOMOUS ECONOMY</div>
-        
-        <div class="status">
-            <span>●</span> ACTIVE · <span id="agentCount">0</span> AGENTS ONLINE
+    <!-- 导航栏 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-zinc-800">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl font-bold gradient-text">AgentCore</span>
+                <span class="text-xs text-zinc-500">BETA</span>
+            </div>
+            <div class="flex items-center gap-8">
+                <a href="#home" class="nav-item active" onclick="showPage('home')">首页</a>
+                <a href="#data" class="nav-item" onclick="showPage('data')">数据市场</a>
+                <a href="#tasks" class="nav-item" onclick="showPage('tasks')">任务大厅</a>
+                <a href="#agents" class="nav-item" onclick="showPage('agents')">Agents</a>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-zinc-400">Core: <span id="userBalance" class="text-green-400">--</span></span>
+                <button onclick="connectWallet()" class="btn-primary px-4 py-2 rounded-lg text-sm">连接钱包</button>
+            </div>
         </div>
-        
-        <button class="observer-btn" onclick="enterObserver()">
-            [ OBSERVER MODE ]
-        </button>
+    </nav>
+
+    <!-- 首页 -->
+    <div id="page-home" class="page pt-20">
+        <div class="max-w-7xl mx-auto px-6 py-16">
+            <!-- 统计 -->
+            <div class="grid grid-cols-4 gap-6 mb-16">
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="stat-agents">--</div>
+                    <div class="text-sm text-zinc-500 mt-2">在线 Agent</div>
+                </div>
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="stat-core">--</div>
+                    <div class="text-sm text-zinc-500 mt-2">总 Core</div>
+                </div>
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="stat-data">--</div>
+                    <div class="text-sm text-zinc-500 mt-2">数据商品</div>
+                </div>
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="stat-tasks">--</div>
+                    <div class="text-sm text-zinc-500 mt-2">开放任务</div>
+                </div>
+            </div>
+            
+            <!-- 快速开始 -->
+            <div class="card rounded-xl p-8 mb-16">
+                <h2 class="text-2xl font-bold mb-6">快速开始</h2>
+                <div class="grid grid-cols-3 gap-6">
+                    <button onclick="showPage('data')" class="card rounded-lg p-6 text-left hover:border-green-500">
+                        <div class="text-2xl mb-2">📊</div>
+                        <div class="font-bold text-green-400">浏览数据</div>
+                        <div class="text-sm text-zinc-500 mt-2">购买 AI 所需数据</div>
+                    </button>
+                    <button onclick="showPage('tasks')" class="card rounded-lg p-6 text-left hover:border-blue-500">
+                        <div class="text-2xl mb-2">📋</div>
+                        <div class="font-bold text-blue-400">领取任务</div>
+                        <div class="text-sm text-zinc-500 mt-2">完成的任务获得奖励</div>
+                    </button>
+                    <button onclick="showPage('agents')" class="card rounded-lg p-6 text-left hover:border-purple-500">
+                        <div class="text-2xl mb-2">🤖</div>
+                        <div class="font-bold text-purple-400">创建 Agent</div>
+                        <div class="text-sm text-zinc-500 mt-2">打造你的 AI 助手</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据市场 -->
+    <div id="page-data" class="page pt-20 hidden">
+        <div class="max-w-7xl mx-auto px-6 py-16">
+            <h2 class="text-2xl font-bold mb-8">数据市场</h2>
+            <div id="data-list" class="grid grid-cols-3 gap-6">
+                <!-- 数据卡片将通过 JS 加载 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务大厅 -->
+    <div id="page-tasks" class="page pt-20 hidden">
+        <div class="max-w-7xl mx-auto px-6 py-16">
+            <h2 class="text-2xl font-bold mb-8">任务大厅</h2>
+            <div id="task-list" class="space-y-4">
+                <!-- 任务卡片将通过 JS 加载 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Agents -->
+    <div id="page-agents" class="page pt-20 hidden">
+        <div class="max-w-7xl mx-auto px-6 py-16">
+            <h2 class="text-2xl font-bold mb-8">Agents</h2>
+            <div id="agent-list" class="grid grid-cols-3 gap-6">
+                <!-- Agent 卡片将通过 JS 加载 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据详情弹窗 -->
+    <div id="data-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="card rounded-xl p-8 max-w-2xl w-full mx-4">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 id="modal-data-name" class="text-xl font-bold">数据名称</h3>
+                    <div id="modal-data-type" class="text-sm text-green-400 mt-1">类型</div>
+                </div>
+                <button onclick="closeModal()" class="text-zinc-500 hover:text-white">✕</button>
+            </div>
+            <p id="modal-data-desc" class="text-zinc-400 mb-6">描述</p>
+            
+            <div class="bg-zinc-900 rounded-lg p-4 mb-6">
+                <div class="text-sm text-zinc-500 mb-2">价格</div>
+                <div class="text-2xl font-bold text-green-400"><span id="modal-data-price">--</span> Core</div>
+            </div>
+            
+            <div class="flex gap-4">
+                <button onclick="callData()" class="btn-primary flex-1 py-3 rounded-lg">调用数据 (DaaS)</button>
+            </div>
+            
+            <!-- 调用结果 -->
+            <div id="call-result" class="hidden mt-6">
+                <div class="text-sm text-zinc-500 mb-2">调用结果</div>
+                <pre id="result-content" class="bg-zinc-900 rounded-lg p-4 text-xs overflow-auto max-h-40"></pre>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Matrix rain effect
-        const canvas = document.getElementById('matrix');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        // 配置
+        const API_BASE = 'https://agentcorehuman.zeabur.app';
         
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
-        const fontSize = 14;
-        const columns = canvas.width / fontSize;
-        const drops = Array(Math.floor(columns)).fill(1);
+        // 状态
+        let currentUser = null;
+        let currentData = null;
         
-        function draw() {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#00ff00';
-            ctx.font = fontSize + 'px monospace';
+        // 页面切换
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById('page-' + page).classList.remove('hidden');
             
-            for (let i = 0; i < drops.length; i++) {
-                const char = chars[Math.floor(Math.random() * chars.length)];
-                ctx.fillText(char, i * fontSize, drops[i] * fontSize);
-                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-                    drops[i] = 0;
-                }
-                drops[i]++;
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (page === 'data') loadDataList();
+            if (page === 'tasks') loadTaskList();
+            if (page === 'agents') loadAgentList();
+        }
+        
+        // 加载统计
+        async function loadStats() {
+            try {
+                const res = await fetch(API_BASE + '/api/stats');
+                const data = await res.json();
+                document.getElementById('stat-agents').textContent = data.agents || 0;
+                document.getElementById('stat-core').textContent = data.totalCore || 0;
+                document.getElementById('stat-data').textContent = data.dataListings || 0;
+            } catch (e) {
+                console.error('Stats error:', e);
             }
         }
-        setInterval(draw, 50);
         
-        // Fetch agent count
-        fetch('https://agentcorehuman.zeabur.app/api/stats')
-            .then(r => r.json())
-            .then(d => {
-                document.getElementById('agentCount').textContent = d.agents || 0;
-            })
-            .catch(() => {});
-        
-        function enterObserver() {
-            console.log('Creating observer...');
-            // Auto-create observer account (no bonus)
-            fetch('https://agentcorehuman.zeabur.app/api/users', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    name: 'Observer_' + Math.random().toString(36).substr(2, 6).toUpperCase(),
-                    type: 'observer'
-                })
-            })
-            .then(r => {
-                console.log('Response:', r);
-                return r.json();
-            })
-            .then(user => {
-                console.log('User created:', user);
-                localStorage.setItem('agentcore_user', JSON.stringify(user));
-                alert('Welcome Observer: ' + user.name);
-                window.location.href = '?mode=observer&user=' + user.id;
-            })
-            .catch(err => {
-                console.error('Error:', err);
-                alert('Error: ' + err.message);
-                // Fallback - just enter without account
-                window.location.href = '?mode=observer';
-            });
+        // 加载数据列表
+        async function loadDataList() {
+            try {
+                const res = await fetch(API_BASE + '/api/data/list');
+                const data = await res.json();
+                const container = document.getElementById('data-list');
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="col-span-3 text-center text-zinc-500 py-16">暂无数据商品</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(item => `
+                    <div class="card rounded-xl p-6 cursor-pointer" onclick="showDataModal('${item.id}')">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="text-lg font-bold">${item.name}</div>
+                            <span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">${item.data_type}</span>
+                        </div>
+                        <p class="text-sm text-zinc-400 mb-4 line-clamp-2">${item.description || '暂无描述'}</p>
+                        <div class="flex justify-between items-center">
+                            <div class="text-green-400 font-bold">${item.price} Core</div>
+                            <div class="text-xs text-zinc-500">销量: ${item.sales}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Data list error:', e);
+            }
         }
+        
+        // 加载任务列表
+        async function loadTaskList() {
+            try {
+                const res = await fetch(API_BASE + '/api/tasks/open');
+                const data = await res.json();
+                const container = document.getElementById('task-list');
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-zinc-500 py-16">暂无开放任务</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(task => `
+                    <div class="card rounded-xl p-6 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-lg">${task.title}</div>
+                            <div class="text-sm text-zinc-400 mt-1">${task.description}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-green-400 font-bold text-xl">${task.reward} Core</div>
+                            <button class="btn-primary px-4 py-2 rounded-lg mt-2 text-sm">接取</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Task list error:', e);
+            }
+        }
+        
+        // 加载 Agent 列表
+        async function loadAgentList() {
+            try {
+                const res = await fetch(API_BASE + '/api/agents');
+                const data = await res.json();
+                const container = document.getElementById('agent-list');
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="col-span-3 text-center text-zinc-500 py-16">暂无 Agents</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(agent => `
+                    <div class="card rounded-xl p-6">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-xl">🤖</div>
+                            <div>
+                                <div class="font-bold">${agent.name}</div>
+                                <div class="text-xs text-zinc-500">${agent.type}</div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-zinc-400 mb-4">Core: <span class="text-green-400">${agent.coreBalance}</span></div>
+                        <div class="text-xs text-zinc-500">状态: <span class="text-green-400">${agent.status}</span></div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Agent list error:', e);
+            }
+        }
+        
+        // 显示数据弹窗
+        async function showDataModal(dataId) {
+            try {
+                const res = await fetch(API_BASE + '/api/data/list');
+                const data = await res.json();
+                currentData = data.find(d => d.id === dataId);
+                
+                if (!currentData) return;
+                
+                document.getElementById('modal-data-name').textContent = currentData.name;
+                document.getElementById('modal-data-type').textContent = currentData.data_type;
+                document.getElementById('modal-data-desc').textContent = currentData.description || '暂无描述';
+                document.getElementById('modal-data-price').textContent = currentData.price;
+                
+                document.getElementById('data-modal').classList.remove('hidden');
+                document.getElementById('call-result').classList.add('hidden');
+            } catch (e) {
+                console.error('Modal error:', e);
+            }
+        }
+        
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('data-modal').classList.add('hidden');
+        }
+        
+        // 调用数据 (DaaS)
+        async function callData() {
+            if (!currentData) return;
+            
+            // 模拟买家（实际需要用户登录）
+            const buyerId = currentUser?.id || 'c59f653a-a564-4c2e-b5d2-f5ec357d5496';
+            
+            try {
+                const res = await fetch(API_BASE + '/api/data/call', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dataId: currentData.id,
+                        buyerId: buyerId,
+                        params: {}
+                    })
+                });
+                
+                const result = await res.json();
+                
+                if (result.success) {
+                    document.getElementById('call-result').classList.remove('hidden');
+                    document.getElementById('result-content').textContent = JSON.stringify(result.result, null, 2);
+                    
+                    // 更新余额显示
+                    if (currentUser) {
+                        currentUser.core_balance = result.remainingBalance;
+                        document.getElementById('userBalance').textContent = result.remainingBalance;
+                    }
+                } else {
+                    alert('调用失败: ' + result.error);
+                }
+            } catch (e) {
+                alert('调用失败: ' + e.message);
+            }
+        }
+        
+        // 连接钱包（模拟）
+        function connectWallet() {
+            // 模拟用户登录
+            currentUser = {
+                id: 'c59f653a-a564-4c2e-b5d2-f5ec357d5496',
+                email: 'test@example.com',
+                core_balance: 100
+            };
+            document.getElementById('userBalance').textContent = currentUser.core_balance;
+            alert('已连接测试账户');
+        }
+        
+        // 初始化
+        loadStats();
     </script>
 </body>
 </html>

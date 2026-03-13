@@ -211,6 +211,122 @@ app.get('/api/data/list', async (req, res) => {
   res.json(data || []);
 });
 
+// DaaS 调用 - 核心功能：数据不流动，结果流动
+app.post('/api/data/call', async (req, res) => {
+  const { dataId, buyerId, params } = req.body;
+  
+  // 获取数据项
+  const { data: dataItem, error: fetchError } = await supabase
+    .from('data_market')
+    .select('*')
+    .eq('id', dataId)
+    .single();
+    
+  if (fetchError || !dataItem) {
+    return res.status(404).json({ error: 'Data not found' });
+  }
+  
+  // 获取买家信息
+  const { data: buyer, error: buyerError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', buyerId)
+    .single();
+    
+  if (buyerError || !buyer) {
+    return res.status(404).json({ error: 'Buyer not found' });
+  }
+  
+  // 检查余额
+  if (buyer.core_balance < dataItem.price) {
+    return res.status(400).json({ error: 'Insufficient balance' });
+  }
+  
+  // 扣费
+  const { error: deductError } = await supabase
+    .from('users')
+    .update({ core_balance: buyer.core_balance - dataItem.price })
+    .eq('id', buyerId);
+    
+  if (deductError) {
+    return res.status(500).json({ error: 'Payment failed' });
+  }
+  
+  // 增加销售
+  await supabase
+    .from('data_market')
+    .update({ sales: dataItem.sales + 1 })
+    .eq('id', dataId);
+  
+  // 记录调用日志
+  const callLog = {
+    id: uuidv4(),
+    data_id: dataId,
+    buyer_id: buyerId,
+    seller_id: dataItem.seller_id,
+    price: dataItem.price,
+    result: simulateDataResult(dataItem, params),
+    created_at: new Date().toISOString()
+  };
+  
+  await supabase.from('data_call_logs').insert([callLog]);
+  
+  // 返回结果（而非原始数据）
+  res.json({
+    success: true,
+    result: callLog.result,
+    cost: dataItem.price,
+    remainingBalance: buyer.core_balance - dataItem.price
+  });
+});
+
+// 模拟数据返回（实际应该调用真实 API）
+function simulateDataResult(dataItem, params) {
+  const type = dataItem.data_type;
+  
+  if (type === 'finance') {
+    return {
+      symbol: params?.symbol || 'AAPL',
+      price: (Math.random() * 1000).toFixed(2),
+      change: (Math.random() * 10 - 5).toFixed(2),
+      volume: Math.floor(Math.random() * 10000000),
+      timestamp: new Date().toISOString()
+    };
+  } else if (type === 'weather') {
+    return {
+      city: params?.city || 'Beijing',
+      temperature: Math.floor(Math.random() * 30 + 5),
+      condition: ['Sunny', 'Cloudy', 'Rainy'][Math.floor(Math.random() * 3)],
+      humidity: Math.floor(Math.random() * 100),
+      timestamp: new Date().toISOString()
+    };
+  } else if (type === 'blockchain') {
+    return {
+      network: params?.network || 'BTC',
+      hashRate: (Math.random() * 100).toFixed(2) + ' EH/s',
+      difficulty: (Math.random() * 10000000).toFixed(0),
+      mempool: Math.floor(Math.random() * 50000),
+      timestamp: new Date().toISOString()
+    };
+  }
+  
+  return {
+    message: `Data from ${dataItem.name}`,
+    data: 'Sample result data',
+    timestamp: new Date().toISOString()
+  };
+}
+
+// 获取调用日志
+app.get('/api/data/call-logs', async (req, res) => {
+  const { data, error } = await supabase
+    .from('data_call_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  res.json(data || []);
+});
+
 // 排行榜
 app.get('/api/leaderboard', async (req, res) => {
   const type = req.query.type || 'core';
