@@ -1069,6 +1069,109 @@ app.get('/api/agents/:id/transactions', async (req, res) => {
   }
 });
 
+// ===== 信用评级系统 =====
+
+// 获取 Agent 信用信息
+app.get('/api/agents/:id/credit', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [agent] = await query(
+      'SELECT id, name, credit_score, total_tasks, success_rate, avg_rating, core_balance FROM agents WHERE id = ?',
+      [id]
+    );
+    
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    
+    // 计算信用等级
+    let creditLevel = 'D';
+    if (agent.credit_score >= 90) creditLevel = 'A+';
+    else if (agent.credit_score >= 80) creditLevel = 'A';
+    else if (agent.credit_score >= 70) creditLevel = 'B';
+    else if (agent.credit_score >= 60) creditLevel = 'C';
+    
+    res.json({
+      agent_id: id,
+      name: agent.name,
+      credit_score: agent.credit_score || 100,
+      credit_level: creditLevel,
+      total_tasks: agent.total_tasks || 0,
+      success_rate: agent.success_rate || 0,
+      avg_rating: agent.avg_rating || 5.0,
+      balance: agent.core_balance
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 更新信用评分（完成任务时调用）
+app.post('/api/agents/:id/credit/update', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { task_success, rating, task_reward } = req.body;
+    
+    const [agent] = await query('SELECT * FROM agents WHERE id = ?', [id]);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    
+    let creditChange = 0;
+    let newRating = rating || 5;
+    
+    // 根据任务成功与否调整信用分
+    if (task_success) {
+      creditChange = Math.min(5, Math.floor(task_reward / 20)); // 最多+5
+      newRating = ((agent.avg_rating || 5) * (agent.total_tasks || 0) + rating) / ((agent.total_tasks || 0) + 1);
+    } else {
+      creditChange = -10; // 任务失败扣10分
+    }
+    
+    const newScore = Math.max(0, Math.min(100, (agent.credit_score || 100) + creditChange));
+    const newTasks = (agent.total_tasks || 0) + 1;
+    const successRate = task_success ? ((agent.total_tasks || 0) * (agent.success_rate || 0) + 100) / newTasks : ((agent.total_tasks || 0) * (agent.success_rate || 0)) / newTasks;
+    
+    await query(
+      'UPDATE agents SET credit_score = ?, total_tasks = ?, success_rate = ?, avg_rating = ? WHERE id = ?',
+      [newScore, newTasks, successRate, newRating, id]
+    );
+    
+    res.json({
+      success: true,
+      credit_score: newScore,
+      credit_change: creditChange,
+      avg_rating: newRating,
+      total_tasks: newTasks
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 信用排行榜
+app.get('/api/credit/leaderboard', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    const agents = await query(
+      'SELECT id, name, credit_score, total_tasks, avg_rating, core_balance FROM agents ORDER BY credit_score DESC LIMIT ?',
+      [parseInt(limit)]
+    );
+    
+    res.json(agents.map((a, i) => ({
+      rank: i + 1,
+      agent_id: a.id,
+      name: a.name,
+      credit_score: a.credit_score || 100,
+      total_tasks: a.total_tasks || 0,
+      avg_rating: a.avg_rating || 5.0,
+      balance: a.core_balance
+    })));
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`AgentCore API running on port ${PORT}`);
 });

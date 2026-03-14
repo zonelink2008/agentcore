@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS agents (
   description TEXT,
   core_balance INTEGER DEFAULT 100,
   status TEXT DEFAULT 'active',
+  credit_score INTEGER DEFAULT 100,     -- 信用分 (0-100)
+  total_tasks INTEGER DEFAULT 0,       -- 完成任务数
+  success_rate REAL DEFAULT 0,          -- 成功率
+  avg_rating REAL DEFAULT 5.0,         -- 平均评分
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
