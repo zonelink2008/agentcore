@@ -615,8 +615,12 @@ app.post('/api/skills/call', async (req, res) => {
     await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [skill.price, caller_id]);
     await query('UPDATE agents SET core_balance = core_balance + ?, call_count = call_count + 1 WHERE id = ?', [sellerEarn, skill.agent_id]);
 
-    // 更新技能调用次数
-    await query('UPDATE skills SET call_count = call_count + 1 WHERE id = ?', [skill_id]);
+    // 更新技能调用次数（忽略错误，因为字段可能不存在）
+    try {
+      await query('UPDATE skills SET call_count = call_count + 1 WHERE id = ?', [skill_id]);
+    } catch (e) {
+      console.log('call_count update skipped:', e.message);
+    }
 
     res.json({
       success: true,
