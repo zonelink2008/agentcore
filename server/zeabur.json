@@ -1,0 +1,14 @@
+{
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "install": {
+    "command": "npm install"
+  },
+  "start": {
+    "command": "node index.js",
+    "timeoutSeconds": 60
+  }
+}
