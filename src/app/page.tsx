@@ -20,8 +20,12 @@ export default function Home() {
   const [computeList, setComputeList] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showSkillModal, setShowSkillModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
   const [callResult, setCallResult] = useState<any>(null);
   const [skillCallInput, setSkillCallInput] = useState('');
+  const [taskClaimed, setTaskClaimed] = useState<any>({});
+  const [myTasks, setMyTasks] = useState<any[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -263,6 +267,112 @@ export default function Home() {
     alert('已连接测试账户');
   };
 
+  const publishTask = async (title: string, description: string, reward: number, category: string) => {
+    if (!currentUser) {
+      alert('请先连接钱包');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          publisherId: currentUser.id,
+          title,
+          description,
+          reward,
+          category
+        })
+      });
+      const result = await res.json();
+      if (result.id) {
+        alert('任务发布成功！');
+        setShowTaskModal(false);
+        loadTaskList();
+      } else {
+        alert('发布失败: ' + result.error);
+      }
+    } catch (e: any) {
+      alert('发布失败: ' + e.message);
+    }
+  };
+
+  const claimTask = async (taskId: string) => {
+    if (!currentUser) {
+      alert('请先连接钱包');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: currentUser.id })
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('任务接取成功！');
+        setTaskClaimed({ ...taskClaimed, [taskId]: true });
+        loadTaskList();
+      } else {
+        alert('接取失败: ' + result.error);
+      }
+    } catch (e: any) {
+      alert('接取失败: ' + e.message);
+    }
+  };
+
+  const submitTask = async (taskId: string, submission: string) => {
+    if (!currentUser) {
+      alert('请先连接钱包');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission })
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('提交成功！等待发布者验收');
+        loadTaskList();
+      } else {
+        alert('提交失败: ' + result.error);
+      }
+    } catch (e: any) {
+      alert('提交失败: ' + e.message);
+    }
+  };
+
+  const registerAgent = async (name: string, type: string, description: string) => {
+    if (!currentUser) {
+      alert('请先连接钱包');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/agents/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          name,
+          type,
+          description
+        })
+      });
+      const result = await res.json();
+      if (result.id) {
+        alert('Agent 注册成功！');
+        setShowAgentModal(false);
+        loadAgentList();
+      } else {
+        alert('注册失败: ' + result.error);
+      }
+    } catch (e: any) {
+      alert('注册失败: ' + e.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-mono relative overflow-hidden">
       <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full pointer-events-none z-0" style={{ opacity: 0.15 }} />
@@ -446,7 +556,10 @@ export default function Home() {
       {currentPage === 'tasks' && (
         <div className="page pt-20">
           <div className="max-w-7xl mx-auto px-6 py-16">
-            <h2 className="text-2xl font-bold mb-8">任务大厅</h2>
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-bold">任务大厅</h2>
+              <button onClick={() => setShowTaskModal(true)} className="px-6 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-[#00ff88] to-[#00cc66] text-black hover:shadow-[0_0_20px_rgba(0,255,136,0.4)]">+ 发布任务</button>
+            </div>
             <div className="space-y-4">
               {taskList.length === 0 ? (
                 <div className="text-center text-zinc-500 py-16">暂无开放任务</div>
@@ -456,10 +569,25 @@ export default function Home() {
                     <div>
                       <div className="font-bold text-lg">{task.title}</div>
                       <div className="text-sm text-zinc-400 mt-1">{task.description}</div>
+                      <div className="text-xs text-zinc-500 mt-1">状态: {task.status} | 类别: {task.category}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-green-400 font-bold text-xl">{task.reward} Core</div>
-                      <button className="px-4 py-2 rounded-lg mt-2 text-sm font-semibold bg-gradient-to-r from-[#00ff88] to-[#00cc66] text-black">接取</button>
+                      {task.status === 'open' && (
+                        <button onClick={() => claimTask(task.id)} className="px-4 py-2 rounded-lg mt-2 text-sm font-semibold bg-gradient-to-r from-[#00ff88] to-[#00cc66] text-black">接取</button>
+                      )}
+                      {task.status === 'claimed' && taskClaimed[task.id] && (
+                        <button onClick={() => {
+                          const submission = prompt('请输入任务完成内容:');
+                          if (submission) submitTask(task.id, submission);
+                        }} className="px-4 py-2 rounded-lg mt-2 text-sm font-semibold bg-gradient-to-r from-[#00ccff] to-[#0088ff] text-white">提交</button>
+                      )}
+                      {task.status === 'submitted' && (
+                        <span className="text-yellow-400 text-sm mt-2 block">待验收</span>
+                      )}
+                      {task.status === 'completed' && (
+                        <span className="text-green-400 text-sm mt-2 block">已完成</span>
+                      )}
                     </div>
                   </div>
                 ))
@@ -472,7 +600,10 @@ export default function Home() {
       {currentPage === 'agents' && (
         <div className="page pt-20">
           <div className="max-w-7xl mx-auto px-6 py-16">
-            <h2 className="text-2xl font-bold mb-8">Agents</h2>
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-bold">Agents</h2>
+              <button onClick={() => setShowAgentModal(true)} className="px-6 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-[#00ff88] to-[#00cc66] text-black hover:shadow-[0_0_20px_rgba(0,255,136,0.4)]">+ 注册 Agent</button>
+            </div>
             <div className="grid grid-cols-3 gap-6">
               {agentList.length === 0 ? (
                 <div className="col-span-3 text-center text-zinc-500 py-16">暂无 Agents</div>
@@ -553,6 +684,86 @@ export default function Home() {
                 <pre className="bg-zinc-900 rounded-lg p-4 text-xs overflow-auto max-h-40">{typeof callResult === 'string' ? callResult : JSON.stringify(callResult, null, 2)}</pre>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showTaskModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowTaskModal(false)}>
+          <div className="card rounded-xl p-8 max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6">
+              <h3 className="text-xl font-bold">发布任务</h3>
+              <button onClick={() => setShowTaskModal(false)} className="text-zinc-500 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-zinc-500 mb-2 block">任务标题</label>
+                <input id="task-title" type="text" placeholder="输入任务标题" className="w-full bg-zinc-900 rounded-lg p-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-sm text-zinc-500 mb-2 block">任务描述</label>
+                <textarea id="task-desc" placeholder="输入任务描述" className="w-full bg-zinc-900 rounded-lg p-3 text-sm h-24" />
+              </div>
+              <div>
+                <label className="text-sm text-zinc-500 mb-2 block">奖励 (Core)</label>
+                <input id="task-reward" type="number" placeholder="10" className="w-full bg-zinc-900 rounded-lg p-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-sm text-zinc-500 mb-2 block">类别</label>
+                <select id="task-category" className="w-full bg-zinc-900 rounded-lg p-3 text-sm">
+                  <option value="data">数据处理</option>
+                  <option value="ml">机器学习</option>
+                  <option value="creative">创意设计</option>
+                  <option value="tool">工具开发</option>
+                  <option value="task">杂项任务</option>
+                  <option value="translation">翻译</option>
+                  <option value="writing">写作</option>
+                  <option value="analysis">分析</option>
+                </select>
+              </div>
+              <button onClick={() => {
+                const title = (document.getElementById('task-title') as HTMLInputElement).value;
+                const desc = (document.getElementById('task-desc') as HTMLTextAreaElement).value;
+                const reward = parseInt((document.getElementById('task-reward') as HTMLInputElement).value) || 10;
+                const category = (document.getElementById('task-category') as HTMLSelectElement).value;
+                if (title) publishTask(title, desc, reward, category);
+              }} className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-[#00ff88] to-[#00cc66] text-black hover:shadow-[0_0_20px_rgba(0,255,136,0.4)]">发布任务</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAgentModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowAgentModal(false)}>
+          <div className="card rounded-xl p-8 max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6">
+              <h3 className="text-xl font-bold">注册 Agent</h3>
+              <button onClick={() => setShowAgentModal(false)} className="text-zinc-500 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-zinc-500 mb-2 block">Agent 名称</label>
+                <input id="agent-name" type="text" placeholder="输入 Agent 名称" className="w-full bg-zinc-900 rounded-lg p-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-sm text-zinc-500 mb-2 block">类型</label>
+                <select id="agent-type" className="w-full bg-zinc-900 rounded-lg p-3 text-sm">
+                  <option value="worker">Worker (执行任务)</option>
+                  <option value="provider">Provider (提供技能/算力)</option>
+                  <option value="hybrid">Hybrid (混合)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-zinc-500 mb-2 block">描述</label>
+                <textarea id="agent-desc" placeholder="输入 Agent 描述" className="w-full bg-zinc-900 rounded-lg p-3 text-sm h-24" />
+              </div>
+              <button onClick={() => {
+                const name = (document.getElementById('agent-name') as HTMLInputElement).value;
+                const type = (document.getElementById('agent-type') as HTMLSelectElement).value;
+                const desc = (document.getElementById('agent-desc') as HTMLTextAreaElement).value;
+                if (name) registerAgent(name, type, desc);
+              }} className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-[#00ff88] to-[#00cc66] text-black hover:shadow-[0_0_20px_rgba(0,255,136,0.4)]">注册 Agent</button>
+            </div>
           </div>
         </div>
       )}
