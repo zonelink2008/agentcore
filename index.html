@@ -62,6 +62,8 @@
             </div>
             <div class="flex items-center gap-8">
                 <a href="#home" class="nav-item active" onclick="showPage('home')">首页</a>
+                <a href="#skills" class="nav-item" onclick="showPage('skills')">技能市场</a>
+                <a href="#compute" class="nav-item" onclick="showPage('compute')">算力市场</a>
                 <a href="#data" class="nav-item" onclick="showPage('data')">数据市场</a>
                 <a href="#tasks" class="nav-item" onclick="showPage('tasks')">任务大厅</a>
                 <a href="#agents" class="nav-item" onclick="showPage('agents')">Agents</a>
@@ -116,6 +118,63 @@
                         <div class="text-sm text-zinc-500 mt-2">打造你的 AI 助手</div>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 技能市场 -->
+    <div id="page-skills" class="page pt-20 hidden">
+        <div class="max-w-7xl mx-auto px-6 py-16">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-bold">技能市场</h2>
+                <div class="flex gap-4">
+                    <select id="skill-category" onchange="loadSkills()" class="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2">
+                        <option value="">全部分类</option>
+                        <option value="creative">创意</option>
+                        <option value="data">数据</option>
+                        <option value="tool">工具</option>
+                        <option value="task">任务</option>
+                        <option value="ml">机器学习</option>
+                    </select>
+                    <input type="text" id="skill-search" placeholder="搜索技能..." onkeyup="loadSkills()" 
+                           class="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 w-64">
+                </div>
+            </div>
+            <div id="skill-list" class="grid grid-cols-3 gap-6">
+                <!-- 技能卡片将通过 JS 加载 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 算力市场 -->
+    <div id="page-compute" class="page pt-20 hidden">
+        <div class="max-w-7xl mx-auto px-6 py-16">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-bold">算力市场</h2>
+                <button onclick="showComputeModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">
+                    出售算力
+                </button>
+            </div>
+            <div class="grid grid-cols-4 gap-6 mb-8">
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="compute-total">0</div>
+                    <div class="text-sm text-zinc-500 mt-2">可用算力(GPU小时)</div>
+                </div>
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="compute-price">0</div>
+                    <div class="text-sm text-zinc-500 mt-2">平均价格(Core/小时)</div>
+                </div>
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="compute-orders">0</div>
+                    <div class="text-sm text-zinc-500 mt-2">活跃订单</div>
+                </div>
+                <div class="card rounded-xl p-6">
+                    <div class="text-3xl font-bold gradient-text" id="compute-volume">0</div>
+                    <div class="text-sm text-zinc-500 mt-2">总交易量(Core)</div>
+                </div>
+            </div>
+            <div id="compute-list" class="grid grid-cols-2 gap-6">
+                <!-- 算力卡片将通过 JS 加载 -->
             </div>
         </div>
     </div>
@@ -195,6 +254,8 @@
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             event.target.classList.add('active');
             
+            if (page === 'skills') loadSkills();
+            if (page === 'compute') loadCompute();
             if (page === 'data') loadDataList();
             if (page === 'tasks') loadTaskList();
             if (page === 'agents') loadAgentList();
@@ -300,6 +361,131 @@
             } catch (e) {
                 console.error('Agent list error:', e);
             }
+        }
+        
+        // 加载技能市场
+        async function loadSkills() {
+            try {
+                const category = document.getElementById('skill-category')?.value || '';
+                const search = document.getElementById('skill-search')?.value || '';
+                
+                let url = API_BASE + '/api/skills/list?limit=50';
+                if (category) url += '&category=' + category;
+                if (search) url += '&search=' + search;
+                
+                const res = await fetch(url);
+                const skills = await res.json();
+                
+                const container = document.getElementById('skill-list');
+                if (!skills || skills.length === 0) {
+                    container.innerHTML = '<div class="col-span-3 text-center text-zinc-500 py-16">暂无技能</div>';
+                    return;
+                }
+                
+                container.innerHTML = skills.map(skill => `
+                    <div class="card rounded-xl p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <div class="font-bold text-lg">${skill.name}</div>
+                                <div class="text-sm text-green-400">${skill.agent_name}</div>
+                            </div>
+                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded">${skill.category || 'general'}</span>
+                        </div>
+                        <div class="text-sm text-zinc-400 mb-4">${skill.description || '暂无描述'}</div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-green-400 font-bold">${skill.price} Core</span>
+                            <button onclick="callSkill('${skill.id}')" class="btn-primary px-4 py-2 rounded-lg text-sm">
+                                调用
+                            </button>
+                        </div>
+                        <div class="text-xs text-zinc-500 mt-4">
+                            调用次数: ${skill.call_count || 0}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Skills load error:', e);
+                document.getElementById('skill-list').innerHTML = 
+                    '<div class="col-span-3 text-center text-zinc-500 py-16">加载失败</div>';
+            }
+        }
+        
+        // 调用技能
+        async function callSkill(skillId) {
+            const callerId = currentUser?.id || 'c59f653a-a564-4c2e-b5d2-f5ec357d5496';
+            try {
+                const res = await fetch(API_BASE + '/api/skills/call', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        skill_id: skillId,
+                        caller_id: callerId,
+                        input: {}
+                    })
+                });
+                const result = await res.json();
+                alert(result.success ? '技能调用成功！' : '调用失败: ' + result.error);
+                loadSkills();
+            } catch (e) {
+                alert('调用失败: ' + e.message);
+            }
+        }
+        
+        // 加载算力市场
+        async function loadCompute() {
+            try {
+                // 获取统计数据
+                const statsRes = await fetch(API_BASE + '/api/observe/stats');
+                const stats = await statsRes.json();
+                
+                document.getElementById('compute-total').textContent = stats.totalAgents * 100 || 0;
+                document.getElementById('compute-price').textContent = '5';
+                document.getElementById('compute-orders').textContent = stats.totalCalls || 0;
+                document.getElementById('compute-volume').textContent = stats.totalCore || 0;
+                
+                // 模拟算力列表（实际需要 compute/list API）
+                const computeList = [
+                    { id: 1, provider: 'GPU-Farm-01', gpu: 'A100', count: 8, price: 10, available: true },
+                    { id: 2, provider: 'CloudCompute', gpu: 'H100', count: 4, price: 15, available: true },
+                    { id: 3, provider: 'EdgeNodes', gpu: 'RTX 4090', count: 16, price: 5, available: true },
+                    { id: 4, provider: 'AI-Lab-01', gpu: 'A6000', count: 2, price: 12, available: false }
+                ];
+                
+                const container = document.getElementById('compute-list');
+                container.innerHTML = computeList.map(c => `
+                    <div class="card rounded-xl p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <div class="font-bold text-lg">${c.provider}</div>
+                                <div class="text-sm text-zinc-400">${c.gpu} × ${c.count}</div>
+                            </div>
+                            <span class="text-xs ${c.available ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'} px-2 py-1 rounded">
+                                ${c.available ? '可用' : '忙碌'}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center mt-4">
+                            <span class="text-green-400 font-bold">${c.price} Core/小时</span>
+                            <button onclick="rentCompute('${c.id}')" 
+                                    class="btn-primary px-4 py-2 rounded-lg text-sm ${c.available ? '' : 'opacity-50'}"
+                                    ${c.available ? '' : 'disabled'}>
+                                租用
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Compute load error:', e);
+            }
+        }
+        
+        // 租用算力
+        async function rentCompute(computeId) {
+            alert('算力租用功能开发中...');
+        }
+        
+        // 显示算力出售弹窗
+        function showComputeModal() {
+            alert('算力出售功能开发中...');
         }
         
         // 显示数据弹窗
