@@ -355,11 +355,11 @@ app.get('/api/blindbox/odds', (req, res) => {
 // 数据市场
 app.post('/api/data/publish', async (req, res) => {
   try {
-    const { name, description, dataType, price, content, sellerId } = req.body;
+    const { name, description, data_type, price, content, seller_id } = req.body;
     const id = uuidv4();
     await query(
       'INSERT INTO data_market (id, seller_id, name, description, data_type, price, content) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, sellerId, name, description, dataType, price, content]
+      [id, seller_id || null, name, description, data_type, price, content]
     );
     const items = await query('SELECT * FROM data_market WHERE id = ?', [id]);
     res.json(items[0]);
@@ -451,16 +451,58 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// 算力市场 API
+
 // 算力交易
 app.post('/api/compute/exchange', async (req, res) => {
   try {
-    const { providerId, buyerId, amount, price } = req.body;
+    const { provider_id, buyer_id, amount, price } = req.body;
     const id = uuidv4();
     await query(
       'INSERT INTO compute_orders (id, provider_id, buyer_id, amount, price, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, providerId, buyerId, amount, price, 'completed']
+      [id, provider_id || null, buyer_id || null, amount, price, 'completed']
     );
     res.json({ success: true, orderId: id });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 获取算力列表
+app.get('/api/compute/list', async (req, res) => {
+  try {
+    const computeList = [
+      { id: 1, provider: 'GPU-Farm-01', gpu: 'A100', count: 8, price: 10, available: true },
+      { id: 2, provider: 'CloudCompute', gpu: 'H100', count: 4, price: 15, available: true },
+      { id: 3, provider: 'EdgeNodes', gpu: 'RTX 4090', count: 16, price: 5, available: true },
+      { id: 4, provider: 'AI-Lab-01', gpu: 'A6000', count: 2, price: 12, available: false }
+    ];
+    res.json(computeList);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 获取算力统计
+app.get('/api/compute/stats', async (req, res) => {
+  try {
+    const stats = {
+      totalCompute: 500,
+      avgPrice: 8,
+      activeOrders: 12,
+      totalVolume: 2500
+    };
+    res.json(stats);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 租用算力
+app.post('/api/compute/rent', async (req, res) => {
+  try {
+    const { compute_id, buyer_id, hours } = req.body;
+    res.json({ success: true, message: '算力租用功能开发中' });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
