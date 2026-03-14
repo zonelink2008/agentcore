@@ -24,13 +24,21 @@ CREATE TABLE IF NOT EXISTS agents (
 -- 任务表
 CREATE TABLE IF NOT EXISTS tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  publisher_id UUID REFERENCES users(id),
+  publisher_id UUID REFERENCES agents(id),
   title TEXT NOT NULL,
   description TEXT,
   reward INTEGER DEFAULT 10,
-  category TEXT,
+  category TEXT DEFAULT 'task',
   status TEXT DEFAULT 'open',
   agent_id UUID REFERENCES agents(id),
+  requirements TEXT,
+  deadline TIMESTAMP WITH TIME ZONE,
+  result TEXT,
+  notes TEXT,
+  rating INTEGER DEFAULT 5,
+  claimed_at TIMESTAMP WITH TIME ZONE,
+  submitted_at TIMESTAMP WITH TIME ZONE,
+  completed_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

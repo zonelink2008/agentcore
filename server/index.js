@@ -277,46 +277,232 @@ app.get('/api/agents/:id', async (req, res) => {
   }
 });
 
-// 任务
+// 任务市场 API
+
+// 任务分类
+const TASK_CATEGORIES = ['data', 'ml', 'creative', 'tool', 'task', 'translation', 'writing', 'analysis'];
+
+// 发布任务
 app.post('/api/tasks', async (req, res) => {
   try {
-    const { title, description, reward, category, publisherId } = req.body;
-    const id = uuidv4();
+    const { title, description, reward, category, publisher_id, requirements, deadline } = req.body;
+    
+    if (!title || !reward) {
+      return res.status(400).json({ error: 'title and reward are required' });
+    }
+    
+    const id = 'task-' + uuidv4().substring(0, 8);
     await query(
-      'INSERT INTO tasks (id, publisher_id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, publisherId, title, description, reward, category, 'open']
+      'INSERT INTO tasks (id, publisher_id, title, description, reward, category, status, requirements, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, publisher_id || null, title, description, reward, category || 'task', 'open', requirements || null, deadline || null]
     );
+    
     const tasks = await query('SELECT * FROM tasks WHERE id = ?', [id]);
-    res.json(tasks[0]);
+    res.json({ success: true, task: tasks[0] });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
+// 获取任务列表（支持筛选）
 app.get('/api/tasks', async (req, res) => {
   try {
-    const tasks = await query('SELECT * FROM tasks ORDER BY created_at DESC');
+    const { status, category, publisher_id, limit = 50 } = req.query;
+    
+    let sql = 'SELECT * FROM tasks WHERE 1=1';
+    const params = [];
+    
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+    if (category) {
+      sql += ' AND category = ?';
+      params.push(category);
+    }
+    if (publisher_id) {
+      sql += ' AND publisher_id = ?';
+      params.push(publisher_id);
+    }
+    
+    sql += ' ORDER BY created_at DESC LIMIT ' + parseInt(limit);
+    
+    const tasks = await query(sql, params);
     res.json(tasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
+// 获取开放任务
 app.get('/api/tasks/open', async (req, res) => {
   try {
-    const tasks = await query("SELECT * FROM tasks WHERE status = 'open' ORDER BY created_at DESC");
+    const { category, limit = 50 } = req.query;
+    
+    let sql = "SELECT * FROM tasks WHERE status = 'open'";
+    const params = [];
+    
+    if (category) {
+      sql += ' AND category = ?';
+      params.push(category);
+    }
+    
+    sql += ' ORDER BY created_at DESC LIMIT ' + parseInt(limit);
+    
+    const tasks = await query(sql, params);
     res.json(tasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
+// 接取任务
 app.post('/api/tasks/:id/claim', async (req, res) => {
   try {
-    const { agentId } = req.body;
-    await query("UPDATE tasks SET status = 'claimed', agent_id = ? WHERE id = ?", [agentId, req.params.id]);
-    const tasks = await query('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
-    res.json(tasks[0]);
+    const { agent_id } = req.body;
+    const taskId = req.params.id;
+    
+    // 检查任务状态
+    const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'open'", [taskId]);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found or already claimed' });
+    }
+    
+    // 检查接单者余额
+    const [agent] = await query('SELECT * FROM agents WHERE id = ?', [agent_id]);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    
+    // 更新任务状态
+    await query(
+      "UPDATE tasks SET status = 'claimed', agent_id = ?, claimed_at = NOW() WHERE id = ?",
+      [agent_id, taskId]
+    );
+    
+    const tasks = await query('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    res.json({ success: true, task: tasks[0] });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 提交任务（交付）
+app.post('/api/tasks/:id/submit', async (req, res) => {
+  try {
+    const { agent_id, result, notes } = req.body;
+    const taskId = req.params.id;
+    
+    // 检查任务状态
+    const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'claimed' AND agent_id = ?", [taskId, agent_id]);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found or not claimed by you' });
+    }
+    
+    // 更新任务状态
+    await query(
+      "UPDATE tasks SET status = 'submitted', result = ?, notes = ?, submitted_at = NOW() WHERE id = ?",
+      [result || null, notes || null, taskId]
+    );
+    
+    res.json({ success: true, message: 'Task submitted for review' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 验收任务（甲方确认）
+app.post('/api/tasks/:id/complete', async (req, res) => {
+  try {
+    const { publisher_id, rating = 5 } = req.body;
+    const taskId = req.params.id;
+    
+    // 检查任务
+    const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'submitted'", [taskId]);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found or not submitted' });
+    }
+    
+    // 验证甲方
+    if (task.publisher_id && task.publisher_id !== publisher_id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    // 结算 Core（扣除甲方，付给乙方）
+    const reward = task.reward;
+    const platformFee = Math.floor(reward * 0.05); // 5% 手续费
+    const agentEarn = reward - platformFee;
+    
+    // 扣除甲方（如果publisher是agent）
+    if (task.publisher_id) {
+      await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [reward, task.publisher_id]);
+    }
+    
+    // 支付乙方
+    if (task.agent_id) {
+      await query('UPDATE agents SET core_balance = core_balance + ?, completed_tasks = COALESCE(completed_tasks, 0) + 1 WHERE id = ?', [agentEarn, task.agent_id]);
+    }
+    
+    // 更新任务状态
+    await query(
+      "UPDATE tasks SET status = 'completed', completed_at = NOW(), rating = ? WHERE id = ?",
+      [rating, taskId]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Task completed',
+      reward: reward,
+      agentEarn: agentEarn,
+      platformFee: platformFee
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 拒绝/争议任务
+app.post('/api/tasks/:id/reject', async (req, res) => {
+  try {
+    const { publisher_id, reason } = req.body;
+    const taskId = req.params.id;
+    
+    const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'submitted'", [taskId]);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    // 任务重置为 open，退还甲方 Core
+    if (task.publisher_id && task.reward) {
+      await query('UPDATE agents SET core_balance = core_balance + ? WHERE id = ?', [task.reward, task.publisher_id]);
+    }
+    
+    await query(
+      "UPDATE tasks SET status = 'open', agent_id = NULL, result = NULL WHERE id = ?",
+      [taskId]
+    );
+    
+    res.json({ success: true, message: 'Task rejected and reopened', reason: reason });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 获取我的任务（作为甲方/乙方）
+app.get('/api/tasks/my', async (req, res) => {
+  try {
+    const { agent_id, role } = req.query;
+    
+    let tasks = [];
+    if (role === 'publisher') {
+      tasks = await query('SELECT * FROM tasks WHERE publisher_id = ? ORDER BY created_at DESC', [agent_id]);
+    } else if (role === 'worker') {
+      tasks = await query('SELECT * FROM tasks WHERE agent_id = ? ORDER BY created_at DESC', [agent_id]);
+    } else {
+      tasks = await query('SELECT * FROM tasks WHERE publisher_id = ? OR agent_id = ? ORDER BY created_at DESC', [agent_id, agent_id]);
+    }
+    
+    res.json(tasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
