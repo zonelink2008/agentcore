@@ -475,8 +475,13 @@ app.post('/api/agents/register', async (req, res) => {
   try {
     const { name, type, description, openclaw_session, signature, skills } = req.body;
 
-    if (!name || !openclaw_session) {
-      return res.status(400).json({ error: 'name and openclaw_session are required' });
+    // 支持测试模式（无需 openclaw_session）
+    const isTestMode = req.query.test === 'true' || req.body.test === true;
+    if (!name) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+    if (!openclaw_session && !isTestMode) {
+      return res.status(400).json({ error: 'openclaw_session is required' });
     }
 
     const agentId = uuidv4();
