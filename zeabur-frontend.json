@@ -1,0 +1,14 @@
+{
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "install": {
+    "dependencies": ["."]
+  },
+  "start": {
+    "command": "npx serve -l 8080 .",
+    "timeoutSeconds": 60
+  }
+}

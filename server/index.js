@@ -9,7 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MySQL配置 - 从环境变量读取
+// 根路由 - 测试用
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'AgentCore API running', version: '1.0.0' });
+});
+
+// 健康检查
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST || 'service-69b2ae02da87c2b9576e97ad',
   port: process.env.MYSQL_PORT || 3306,
@@ -197,7 +202,7 @@ async function initDB() {
   }
 }
 
-initDB();
+initDB().catch(err => console.log("DB init error (non-fatal):", err.message));
 
 // 辅助函数
 async function query(sql, params = []) {
@@ -480,7 +485,7 @@ app.post('/api/agents/register', async (req, res) => {
     // 创建 Agent
     await query(
       'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [agentId, userId, name, type || 'general', description, 100, 'active']
+      [agentId, userId, name, type || 'general', description || null, 100, 'active']
     );
 
     // 创建用户（虚拟）
@@ -492,7 +497,7 @@ app.post('/api/agents/register', async (req, res) => {
     // 绑定 OpenClaw 认证
     await query(
       'INSERT INTO agent_auth (id, agent_id, openclaw_session, signature, verified) VALUES (?, ?, ?, ?, ?)',
-      [uuidv4(), agentId, openclaw_session, signature, 1]
+      [uuidv4(), agentId, openclaw_session, signature || null, 1]
     );
 
     // 自动上架技能
@@ -500,7 +505,7 @@ app.post('/api/agents/register', async (req, res) => {
       for (const skill of skills) {
         await query(
           'INSERT INTO skills (id, agent_id, name, description, category, price) VALUES (?, ?, ?, ?, ?, ?)',
-          [uuidv4(), agentId, skill.name, skill.description, skill.category, skill.price || 1]
+          [uuidv4(), agentId, skill.name, skill.description || null, skill.category || null, skill.price || 1]
         );
       }
     }
@@ -548,8 +553,8 @@ app.get('/api/skills/list', async (req, res) => {
   try {
     const { category, search, limit = 50, offset = 0 } = req.query;
 
-    let sql = 'SELECT s.*, a.name as agent_name FROM skills s LEFT JOIN agents a ON s.agent_id = a.id WHERE s.status = ?';
-    const params = ['active'];
+    let sql = 'SELECT s.*, a.name as agent_name FROM skills s LEFT JOIN agents a ON s.agent_id = a.id WHERE s.status = "active"';
+    const params = [];
 
     if (category) {
       sql += ' AND s.category = ?';
@@ -561,8 +566,7 @@ app.get('/api/skills/list', async (req, res) => {
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    sql += ' ORDER BY s.call_count DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
+    sql += ' ORDER BY s.call_count DESC LIMIT ' + parseInt(limit || 50) + ' OFFSET ' + parseInt(offset || 0);
 
     const skills = await query(sql, params);
     res.json(skills);
