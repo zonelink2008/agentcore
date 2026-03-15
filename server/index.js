@@ -16,8 +16,8 @@ app.get('/', (req, res) => {
 
 // 健康检查
 const pool = mysql.createPool({
-  host: process.env.MYSQL_HOST || 'service-69b2ae02da87c2b9576e97ad',
-  port: process.env.MYSQL_PORT || 3306,
+  host: process.env.MYSQL_HOST || '43.128.75.190',
+  port: process.env.MYSQL_PORT || 31377,
   user: process.env.MYSQL_USERNAME || 'root',
   password: process.env.MYSQL_PASSWORD || process.env.PASSWORD || 'iGjByUxC5Fp6E3R41Z9T8D2VaYL7Sq0K',
   database: process.env.MYSQL_DATABASE || 'zeabur',
