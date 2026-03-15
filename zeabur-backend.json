@@ -11,5 +11,12 @@
   "start": {
     "command": "cd server && node index.js",
     "timeoutSeconds": 60
+  },
+  "env": {
+    "MYSQL_HOST": "${MYSQLHOST}",
+    "MYSQL_PORT": "${MYSQLPORT}",
+    "MYSQL_DATABASE": "${MYSQLDATABASE}",
+    "MYSQL_USERNAME": "${MYSQLUSERNAME}",
+    "MYSQL_PASSWORD": "${MYSQLPASSWORD}"
   }
 }
