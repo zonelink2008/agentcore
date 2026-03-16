@@ -347,7 +347,139 @@ CREATE TABLE reviews (
 
 ---
 
-## 11. 自建专家库 (种子)
+## 11. 任务配对 & 路由实现
+
+### 11.1 任务分析器
+
+任务进入系统后，首先进行解析：
+
+```javascript
+// 任务分析流程
+{
+  // 1. 意图识别
+  intent: "coding",  // 分类：coding, writing, analysis, translation...
+  
+  // 2. 实体提取
+  entities: {
+    language: "python",
+    framework: "react",
+    complexity: "high"
+  },
+  
+  // 3. 难度评估
+  difficulty: "intermediate",  // simple | intermediate | complex
+  
+  // 4. 需求提取
+  requirements: ["性能", "安全", "可维护"],
+  
+  // 5. 预算范围
+  budget: { min: 0.05, max: 0.20 }
+}
+```
+
+### 11.2 能力标签匹配
+
+```javascript
+// 标签匹配算法
+function matchCapabilities(task, expert) {
+  const taskTags = new Set(task.requirements);
+  const expertTags = new Set(expert.tags);
+  
+  // 计算交集
+  const overlap = [...taskTags].filter(t => expertTags.has(t));
+  
+  // 匹配度 = 交集 / 任务需求
+  return overlap.length / taskTags.size;
+}
+```
+
+### 11.3 加权评分模型
+
+```
+Score = 
+  0.40 × 能力匹配度     (tag overlap)
++ 0.25 × 历史评分       (rating)
++ 0.20 × 性价比         (budget fit)
++ 0.15 × 响应速度       (avg_completion_time)
+```
+
+### 11.4 路由策略
+
+| 策略 | 说明 | 适用场景 |
+|------|------|----------|
+| **价格优先** | 选最便宜的 | 低预算任务 |
+| **质量优先** | 选评分最高的 | 高价值任务 |
+| **速度优先** | 选响应最快的 | 实时任务 |
+| **均衡** | 加权综合评分 | 默认 |
+
+### 11.5 Fallback 机制
+
+```javascript
+// 主专家失败自动切换
+async function dispatchWithFallback(task) {
+  const candidates = getRankedExperts(task);
+  
+  for (const expert of candidates) {
+    try {
+      return await execute(task, expert);
+    } catch (error) {
+      console.log(`${expert.name} failed, trying next...`);
+      continue;
+    }
+  }
+  
+  return { error: "All experts failed" };
+}
+```
+
+### 11.6 实现代码
+
+```javascript
+// 路由核心逻辑
+class Router {
+  async route(task) {
+    // 1. 分析任务
+    const analysis = this.analyzer.analyze(task);
+    
+    // 2. 获取候选专家
+    const candidates = await this.expertRegistry.query({
+      category: analysis.category,
+      tags: analysis.requirements,
+      status: 'online'
+    });
+    
+    // 3. 加权评分
+    const scored = candidates.map(expert => ({
+      expert,
+      score: this.calculateScore(analysis, expert)
+    }));
+    
+    // 4. 排序
+    scored.sort((a, b) => b.score - a.score);
+    
+    // 5. 返回 Top-N
+    return scored.slice(0, 3);
+  }
+  
+  calculateScore(task, expert) {
+    const capScore = matchCapabilities(task, expert) * 0.40;
+    const ratingScore = (expert.rating / 5) * 0.25;
+    const priceScore = (expert.basePrice <= task.budget.max) * 0.20;
+    const speedScore = (expert.avgTime < 60) ? 0.15 : 0.05;
+    
+    return capScore + ratingScore + priceScore + speedScore;
+  }
+}
+```
+
+### 11.7 监控 & 指标
+
+| 指标 | 说明 |
+|------|------|
+| 匹配准确率 | 任务完成率 |
+| 响应时间 | 平均延迟 |
+| 失败率 | Fallback 触发次数 |
+| 成本 | 每任务平均成本 |
 
 ### 11.1 10个自建专家
 
@@ -412,7 +544,52 @@ class ExpertAgent {
 
 ---
 
-## 10. 风险与对策
+## 9. 任务配对 & 路由实现
+
+### 9.1 任务分析器
+
+任务进入系统后，首先进行解析：
+
+| 步骤 | 输出 | 方法 |
+|------|------|------|
+| 意图识别 | category | 关键词匹配 / LLM |
+| 实体提取 | entities | NER / 正则 |
+| 难度评估 | difficulty | 规则 / LLM |
+| 需求提取 | requirements | 解析描述 |
+| 预算范围 | budget | 用户指定 |
+
+### 9.2 能力标签匹配
+
+```javascript
+// 标签匹配度 = 交集 / 任务需求
+const matchScore = overlap.length / taskTags.size;
+```
+
+### 9.3 加权评分模型
+
+| 权重 | 因素 | 数据来源 |
+|------|------|----------|
+| 40% | 能力匹配度 | tag overlap |
+| 25% | 历史评分 | 完成任务后评分 |
+| 20% | 性价比 | budget fit |
+| 15% | 响应速度 | avg_completion_time |
+
+### 9.4 路由策略
+
+| 策略 | 说明 |
+|------|------|
+| 价格优先 | 选最便宜的 |
+| 质量优先 | 选评分最高的 |
+| 速度优先 | 选响应最快的 |
+| 均衡 | 加权综合 (默认) |
+
+### 9.5 Fallback 机制
+
+主专家失败 → 自动尝试下一个 → 直到成功或全部失败
+
+---
+
+## 10. 参考: OpenRouter 路由
 
 | 风险 | 对策 |
 |------|------|
