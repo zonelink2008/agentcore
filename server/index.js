@@ -31,7 +31,7 @@ async function initDB() {
   console.log('Initializing MySQL...');
   try {
     const connection = await pool.getConnection();
-    
+
     // 创建表
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
@@ -42,7 +42,7 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS agents (
         id VARCHAR(36) PRIMARY KEY,
@@ -55,7 +55,7 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS tasks (
         id VARCHAR(36) PRIMARY KEY,
@@ -72,7 +72,7 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS data_market (
         id VARCHAR(36) PRIMARY KEY,
@@ -87,7 +87,7 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS data_call_logs (
         id VARCHAR(36) PRIMARY KEY,
@@ -99,7 +99,7 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // 数据购买表
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS data_purchases (
@@ -112,7 +112,7 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // 算力出租表
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS compute_listings (
@@ -170,18 +170,18 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // 插入测试数据
     const [users] = await connection.execute('SELECT COUNT(*) as count FROM users');
     if (users[0].count === 0) {
       console.log('Inserting seed data...');
-      
+
       // 测试用户
       await connection.execute(
         'INSERT INTO users (id, email, wallet_address, core_balance) VALUES (?, ?, ?, ?)',
         [uuidv4(), 'test@example.com', '0x1234567890abcdef', 1000]
       );
-      
+
       // 测试 Agents
       await connection.execute(
         'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -195,7 +195,7 @@ async function initDB() {
         'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [uuidv4(), null, 'ModelTrainer', 'ml', '机器学习模型训练Agent', 800, 'active']
       );
-      
+
       // 测试任务
       await connection.execute(
         'INSERT INTO tasks (id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?)',
@@ -209,7 +209,7 @@ async function initDB() {
         'INSERT INTO tasks (id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?)',
         ['task-3', '文本数据清洗', '清洗和标准化文本数据', 30, 'data', 'open']
       );
-      
+
       // 测试数据市场
       await connection.execute(
         'INSERT INTO data_market (id, seller_id, name, description, data_type, price, views, sales) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -224,7 +224,7 @@ async function initDB() {
         [uuidv4(), null, '图像分类数据集', '10万张图片的分类标注数据', 'image', 200, 45, 5]
       );
     }
-    
+
     connection.release();
     console.log('MySQL connected and initialized!');
   } catch (error) {
@@ -316,17 +316,17 @@ const TASK_CATEGORIES = ['data', 'ml', 'creative', 'tool', 'task', 'translation'
 app.post('/api/tasks', async (req, res) => {
   try {
     const { title, description, reward, category, publisher_id, requirements, deadline } = req.body;
-    
+
     if (!title || !reward) {
       return res.status(400).json({ error: 'title and reward are required' });
     }
-    
+
     const id = 'task-' + uuidv4().substring(0, 8);
     await query(
       'INSERT INTO tasks (id, publisher_id, title, description, reward, category, status, requirements, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, publisher_id || null, title, description, reward, category || 'task', 'open', requirements || null, deadline || null]
     );
-    
+
     const tasks = await query('SELECT * FROM tasks WHERE id = ?', [id]);
     res.json({ success: true, task: tasks[0] });
   } catch (error) {
@@ -338,10 +338,10 @@ app.post('/api/tasks', async (req, res) => {
 app.get('/api/tasks', async (req, res) => {
   try {
     const { status, category, publisher_id, limit = 50 } = req.query;
-    
+
     let sql = 'SELECT * FROM tasks WHERE 1=1';
     const params = [];
-    
+
     if (status) {
       sql += ' AND status = ?';
       params.push(status);
@@ -354,9 +354,9 @@ app.get('/api/tasks', async (req, res) => {
       sql += ' AND publisher_id = ?';
       params.push(publisher_id);
     }
-    
+
     sql += ' ORDER BY created_at DESC LIMIT ' + parseInt(limit);
-    
+
     const tasks = await query(sql, params);
     res.json(tasks);
   } catch (error) {
@@ -368,17 +368,17 @@ app.get('/api/tasks', async (req, res) => {
 app.get('/api/tasks/open', async (req, res) => {
   try {
     const { category, limit = 50 } = req.query;
-    
+
     let sql = "SELECT * FROM tasks WHERE status = 'open'";
     const params = [];
-    
+
     if (category) {
       sql += ' AND category = ?';
       params.push(category);
     }
-    
+
     sql += ' ORDER BY created_at DESC LIMIT ' + parseInt(limit);
-    
+
     const tasks = await query(sql, params);
     res.json(tasks);
   } catch (error) {
@@ -391,25 +391,25 @@ app.post('/api/tasks/:id/claim', async (req, res) => {
   try {
     const { agent_id } = req.body;
     const taskId = req.params.id;
-    
+
     // 检查任务状态
     const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'open'", [taskId]);
     if (!task) {
       return res.status(404).json({ error: 'Task not found or already claimed' });
     }
-    
+
     // 检查接单者余额
     const [agent] = await query('SELECT * FROM agents WHERE id = ?', [agent_id]);
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    
+
     // 更新任务状态
     await query(
       "UPDATE tasks SET status = 'claimed', agent_id = ?, claimed_at = NOW() WHERE id = ?",
       [agent_id, taskId]
     );
-    
+
     const tasks = await query('SELECT * FROM tasks WHERE id = ?', [taskId]);
     res.json({ success: true, task: tasks[0] });
   } catch (error) {
@@ -422,19 +422,19 @@ app.post('/api/tasks/:id/submit', async (req, res) => {
   try {
     const { agent_id, result, notes } = req.body;
     const taskId = req.params.id;
-    
+
     // 检查任务状态
     const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'claimed' AND agent_id = ?", [taskId, agent_id]);
     if (!task) {
       return res.status(404).json({ error: 'Task not found or not claimed by you' });
     }
-    
+
     // 更新任务状态
     await query(
       "UPDATE tasks SET status = 'submitted', result = ?, notes = ?, submitted_at = NOW() WHERE id = ?",
       [result || null, notes || null, taskId]
     );
-    
+
     res.json({ success: true, message: 'Task submitted for review' });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -446,41 +446,41 @@ app.post('/api/tasks/:id/complete', async (req, res) => {
   try {
     const { publisher_id, rating = 5 } = req.body;
     const taskId = req.params.id;
-    
+
     // 检查任务
     const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'submitted'", [taskId]);
     if (!task) {
       return res.status(404).json({ error: 'Task not found or not submitted' });
     }
-    
+
     // 验证甲方
     if (task.publisher_id && task.publisher_id !== publisher_id) {
       return res.status(403).json({ error: 'Not authorized' });
     }
-    
+
     // 结算 Core（扣除甲方，付给乙方）
     const reward = task.reward;
     const platformFee = Math.floor(reward * 0.05); // 5% 手续费
     const agentEarn = reward - platformFee;
-    
+
     // 扣除甲方（如果publisher是agent）
     if (task.publisher_id) {
       await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [reward, task.publisher_id]);
     }
-    
+
     // 支付乙方
     if (task.agent_id) {
       await query('UPDATE agents SET core_balance = core_balance + ?, completed_tasks = COALESCE(completed_tasks, 0) + 1 WHERE id = ?', [agentEarn, task.agent_id]);
     }
-    
+
     // 更新任务状态
     await query(
       "UPDATE tasks SET status = 'completed', completed_at = NOW(), rating = ? WHERE id = ?",
       [rating, taskId]
     );
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Task completed',
       reward: reward,
       agentEarn: agentEarn,
@@ -496,22 +496,22 @@ app.post('/api/tasks/:id/reject', async (req, res) => {
   try {
     const { publisher_id, reason } = req.body;
     const taskId = req.params.id;
-    
+
     const [task] = await query("SELECT * FROM tasks WHERE id = ? AND status = 'submitted'", [taskId]);
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
-    
+
     // 任务重置为 open，退还甲方 Core
     if (task.publisher_id && task.reward) {
       await query('UPDATE agents SET core_balance = core_balance + ? WHERE id = ?', [task.reward, task.publisher_id]);
     }
-    
+
     await query(
       "UPDATE tasks SET status = 'open', agent_id = NULL, result = NULL WHERE id = ?",
       [taskId]
     );
-    
+
     res.json({ success: true, message: 'Task rejected and reopened', reason: reason });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -522,7 +522,7 @@ app.post('/api/tasks/:id/reject', async (req, res) => {
 app.get('/api/tasks/my', async (req, res) => {
   try {
     const { agent_id, role } = req.query;
-    
+
     let tasks = [];
     if (role === 'publisher') {
       tasks = await query('SELECT * FROM tasks WHERE publisher_id = ? ORDER BY created_at DESC', [agent_id]);
@@ -531,7 +531,7 @@ app.get('/api/tasks/my', async (req, res) => {
     } else {
       tasks = await query('SELECT * FROM tasks WHERE publisher_id = ? OR agent_id = ? ORDER BY created_at DESC', [agent_id, agent_id]);
     }
-    
+
     res.json(tasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -544,11 +544,11 @@ app.post('/api/blindbox/open', async (req, res) => {
     const { userId } = req.body;
     const rewards = [10, 20, 50, 100];
     const reward = rewards[Math.floor(Math.random() * rewards.length)];
-    
+
     if (userId) {
       await query('UPDATE users SET core_balance = core_balance + ? WHERE id = ?', [reward, userId]);
     }
-    
+
     res.json({
       success: true,
       reward,
@@ -596,29 +596,29 @@ app.get('/api/data/list', async (req, res) => {
 app.post('/api/data/call', async (req, res) => {
   try {
     const { dataId, buyerId, params } = req.body;
-    
+
     // 获取数据
     const items = await query('SELECT * FROM data_market WHERE id = ?', [dataId]);
     if (items.length === 0) return res.status(404).json({ success: false, error: 'Data not found' });
-    
+
     const data = items[0];
-    
+
     // 模拟调用结果
     const result = {
       data: data.content || 'Sample data result',
       timestamp: new Date().toISOString()
     };
-    
+
     // 记录调用
     const logId = uuidv4();
     await query(
       'INSERT INTO data_call_logs (id, data_id, buyer_id, seller_id, price, result) VALUES (?, ?, ?, ?, ?, ?)',
       [logId, dataId, buyerId, data.seller_id, data.price, JSON.stringify(result)]
     );
-    
+
     // 更新销量
     await query('UPDATE data_market SET sales = sales + 1 WHERE id = ?', [dataId]);
-    
+
     res.json({
       success: true,
       result,
@@ -642,34 +642,34 @@ app.get('/api/data/call-logs', async (req, res) => {
 app.post('/api/data/buy', async (req, res) => {
   try {
     const { data_id, buyer_id } = req.body;
-    
+
     const [data] = await query('SELECT * FROM data_market WHERE id = ?', [data_id]);
     if (!data) {
       return res.status(404).json({ error: 'Data not found' });
     }
-    
+
     const [buyer] = await query('SELECT * FROM agents WHERE id = ?', [buyer_id]);
     if (!buyer || buyer.core_balance < data.price) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
-    
+
     // 扣款
     await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [data.price, buyer_id]);
-    
+
     // 给卖家付款
     if (data.seller_id) {
       await query('UPDATE agents SET core_balance = core_balance + ? WHERE id = ?', [data.price, data.seller_id]);
     }
-    
+
     // 记录购买
     await query(
       'INSERT INTO data_purchases (data_id, buyer_id, seller_id, price) VALUES (?, ?, ?, ?)',
       [data_id, buyer_id, data.seller_id, data.price]
     );
-    
+
     // 更新销量
     await query('UPDATE data_market SET sales = sales + 1 WHERE id = ?', [data_id]);
-    
+
     res.json({ success: true, remainingBalance: buyer.core_balance - data.price });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -681,22 +681,22 @@ app.get('/api/data/download/:id', async (req, res) => {
   try {
     const dataId = req.params.id;
     const buyerId = req.query.buyer_id;
-    
+
     // 检查是否已购买
     const [purchase] = await query(
       'SELECT * FROM data_purchases WHERE data_id = ? AND buyer_id = ? AND status = ?',
       [dataId, buyerId, 'completed']
     );
-    
+
     if (!purchase) {
       return res.status(403).json({ error: 'Please purchase first' });
     }
-    
+
     const [data] = await query('SELECT * FROM data_market WHERE id = ?', [dataId]);
     if (!data) {
       return res.status(404).json({ error: 'Data not found' });
     }
-    
+
     res.json({
       name: data.name,
       content: data.content,
@@ -725,7 +725,7 @@ app.get('/api/stats', async (req, res) => {
     const [tasks] = await query("SELECT COUNT(*) as count FROM tasks WHERE status = 'open'");
     const [dataListings] = await query('SELECT COUNT(*) as count FROM data_market');
     const [coreResult] = await query('SELECT SUM(core_balance) as total FROM agents');
-    
+
     res.json({
       agents: agents.count,
       openTasks: tasks.count,
@@ -798,13 +798,13 @@ app.post('/api/compute/rent', async (req, res) => {
 app.post('/api/compute/lease', async (req, res) => {
   try {
     const { provider_id, provider_name, gpu_type, gpu_count, price_per_hour } = req.body;
-    
+
     const id = uuidv4();
     await query(
       'INSERT INTO compute_listings (id, provider_id, provider_name, gpu_type, gpu_count, price_per_hour, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, provider_id, provider_name, gpu_type, gpu_count, price_per_hour, 'available']
     );
-    
+
     res.json({ success: true, id, message: '算力上架成功' });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -1049,10 +1049,10 @@ app.get('/api/observe/recent-trades', async (req, res) => {
   try {
     const { limit = 20 } = req.query;
     const trades = await query(
-      `SELECT sc.*, s.name as skill_name, a.name as caller_name 
-       FROM skill_calls sc 
-       LEFT JOIN skills s ON sc.skill_id = s.id 
-       LEFT JOIN agents a ON sc.caller_id = a.id 
+      `SELECT sc.*, s.name as skill_name, a.name as caller_name
+       FROM skill_calls sc
+       LEFT JOIN skills s ON sc.skill_id = s.id
+       LEFT JOIN agents a ON sc.caller_id = a.id
        ORDER BY sc.created_at DESC LIMIT ?`,
       [parseInt(limit)]
     );
@@ -1206,18 +1206,18 @@ app.get('/api/agents/:id/credit', async (req, res) => {
       'SELECT id, name, credit_score, total_tasks, success_rate, avg_rating, core_balance FROM agents WHERE id = ?',
       [id]
     );
-    
+
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    
+
     // 计算信用等级
     let creditLevel = 'D';
     if (agent.credit_score >= 90) creditLevel = 'A+';
     else if (agent.credit_score >= 80) creditLevel = 'A';
     else if (agent.credit_score >= 70) creditLevel = 'B';
     else if (agent.credit_score >= 60) creditLevel = 'C';
-    
+
     res.json({
       agent_id: id,
       name: agent.name,
@@ -1238,15 +1238,15 @@ app.post('/api/agents/:id/credit/update', async (req, res) => {
   try {
     const { id } = req.params;
     const { task_success, rating, task_reward } = req.body;
-    
+
     const [agent] = await query('SELECT * FROM agents WHERE id = ?', [id]);
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    
+
     let creditChange = 0;
     let newRating = rating || 5;
-    
+
     // 根据任务成功与否调整信用分
     if (task_success) {
       creditChange = Math.min(5, Math.floor(task_reward / 20)); // 最多+5
@@ -1254,16 +1254,16 @@ app.post('/api/agents/:id/credit/update', async (req, res) => {
     } else {
       creditChange = -10; // 任务失败扣10分
     }
-    
+
     const newScore = Math.max(0, Math.min(100, (agent.credit_score || 100) + creditChange));
     const newTasks = (agent.total_tasks || 0) + 1;
     const successRate = task_success ? ((agent.total_tasks || 0) * (agent.success_rate || 0) + 100) / newTasks : ((agent.total_tasks || 0) * (agent.success_rate || 0)) / newTasks;
-    
+
     await query(
       'UPDATE agents SET credit_score = ?, total_tasks = ?, success_rate = ?, avg_rating = ? WHERE id = ?',
       [newScore, newTasks, successRate, newRating, id]
     );
-    
+
     res.json({
       success: true,
       credit_score: newScore,
@@ -1284,7 +1284,7 @@ app.get('/api/credit/leaderboard', async (req, res) => {
       'SELECT id, name, credit_score, total_tasks, avg_rating, core_balance FROM agents ORDER BY credit_score DESC LIMIT ?',
       [parseInt(limit)]
     );
-    
+
     res.json(agents.map((a, i) => ({
       rank: i + 1,
       agent_id: a.id,
@@ -1305,10 +1305,10 @@ app.get('/api/credit/leaderboard', async (req, res) => {
 app.post('/api/tasks/decompose', async (req, res) => {
   try {
     const { task_id, description, budget } = req.body;
-    
+
     // 智能任务分解逻辑
     const subtasks = [];
-    
+
     // 简单规则分解（实际可以用 AI 分析）
     if (description.includes('数据') || description.includes('分析')) {
       subtasks.push({
@@ -1319,7 +1319,7 @@ app.post('/api/tasks/decompose', async (req, res) => {
         required_agent_type: 'data'
       });
     }
-    
+
     if (description.includes('模型') || description.includes('训练')) {
       subtasks.push({
         type: 'ml',
@@ -1329,7 +1329,7 @@ app.post('/api/tasks/decompose', async (req, res) => {
         required_agent_type: 'ml'
       });
     }
-    
+
     if (description.includes('图像') || description.includes('图片')) {
       subtasks.push({
         type: 'creative',
@@ -1339,7 +1339,7 @@ app.post('/api/tasks/decompose', async (req, res) => {
         required_agent_type: 'creative'
       });
     }
-    
+
     if (description.includes('文本') || description.includes('写作')) {
       subtasks.push({
         type: 'task',
@@ -1349,7 +1349,7 @@ app.post('/api/tasks/decompose', async (req, res) => {
         required_agent_type: 'task'
       });
     }
-    
+
     // 如果没有匹配到任何类型，创建一个通用任务
     if (subtasks.length === 0) {
       subtasks.push({
@@ -1360,7 +1360,7 @@ app.post('/api/tasks/decompose', async (req, res) => {
         required_agent_type: 'general'
       });
     }
-    
+
     res.json({
       success: true,
       parent_task_id: task_id,
@@ -1377,22 +1377,22 @@ app.post('/api/tasks/decompose', async (req, res) => {
 app.post('/api/tasks/decompose/publish', async (req, res) => {
   try {
     const { parent_task_id, subtasks, main_agent_id, total_budget } = req.body;
-    
+
     const publishedSubtasks = [];
-    
+
     for (const subtask of subtasks) {
       const subtaskId = uuidv4();
       await query(
         'INSERT INTO tasks (id, publisher_id, title, description, reward, category, status, parent_task_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [subtaskId, main_agent_id, subtask.title, subtask.description, subtask.estimated_reward, subtask.type, 'open', parent_task_id]
       );
-      
+
       publishedSubtasks.push({
         id: subtaskId,
         ...subtask
       });
     }
-    
+
     res.json({
       success: true,
       parent_task_id,
@@ -1408,15 +1408,15 @@ app.post('/api/tasks/decompose/publish', async (req, res) => {
 app.get('/api/tasks/:id/subtasks', async (req, res) => {
   try {
     const parentTaskId = req.params.id;
-    
+
     const subtasks = await query(
       'SELECT * FROM tasks WHERE parent_task_id = ? ORDER BY created_at',
       [parentTaskId]
     );
-    
+
     const completed = subtasks.filter(t => t.status === 'completed').length;
     const total = subtasks.length;
-    
+
     res.json({
       parent_task_id: parentTaskId,
       subtasks: subtasks,
@@ -1436,17 +1436,17 @@ app.post('/api/tasks/:id/aggregate', async (req, res) => {
   try {
     const parentTaskId = req.params.id;
     const { main_agent_id } = req.body;
-    
+
     // 获取所有已完成子任务
     const subtasks = await query(
       "SELECT * FROM tasks WHERE parent_task_id = ? AND status = 'completed'",
       [parentTaskId]
     );
-    
+
     if (subtasks.length === 0) {
       return res.status(400).json({ error: 'No completed subtasks to aggregate' });
     }
-    
+
     // 聚合结果
     const results = subtasks.map(t => ({
       title: t.title,
@@ -1454,10 +1454,10 @@ app.post('/api/tasks/:id/aggregate', async (req, res) => {
       result: t.result || 'No result',
       completed_at: t.completed_at
     }));
-    
+
     // 计算总成本
     const totalCost = subtasks.reduce((sum, t) => sum + t.reward, 0);
-    
+
     res.json({
       success: true,
       parent_task_id: parentTaskId,
@@ -1475,17 +1475,17 @@ app.post('/api/tasks/:id/aggregate', async (req, res) => {
 app.get('/api/agents/recommend', async (req, res) => {
   try {
     const { task_type, category, budget } = req.query;
-    
+
     let agents = await query('SELECT * FROM agents WHERE status = ?', ['active']);
-    
+
     // 按类型过滤
     if (task_type) {
       agents = agents.filter(a => a.type === task_type);
     }
-    
+
     // 按分类评分排序
     agents = agents.sort((a, b) => (b.core_balance || 0) - (a.core_balance || 0));
-    
+
     // 推荐前5个
     const recommendations = agents.slice(0, 5).map(a => ({
       id: a.id,
@@ -1496,7 +1496,7 @@ app.get('/api/agents/recommend', async (req, res) => {
       success_rate: a.success_rate || 0,
       recommendation_reason: a.type === category ? '类型匹配' : '高余额推荐'
     }));
-    
+
     res.json({
       task_type,
       budget: parseInt(budget) || 0,
@@ -1513,21 +1513,21 @@ app.get('/api/agents/recommend', async (req, res) => {
 app.post('/api/v1/chat/completions', async (req, res) => {
   try {
     const { model, messages, max_tokens, temperature } = req.body;
-    
+
     // 从 model 中提取 Agent 类型
-    // 例如: "agent-stock" -> 股票分析 Agent
-    const agentType = model?.replace('agent-', '') || 'general';
-    
+    const agentType = (model || '').replace('agent-', '') || 'general';
+
     // 从 messages 获取任务内容
-    const lastMessage = messages?.[messages.length - 1]?.content || '';
+    const msgArray = messages || [];
+    const lastMessage = msgArray.length > 0 ? (msgArray[msgArray.length - 1].content || '') : '';
     
     // 智能匹配最佳 Agent
-    const [agents] = await query(
+    const agents = await query(
       "SELECT * FROM agents WHERE type = ? OR name LIKE ? LIMIT 1",
       [agentType, `%${agentType}%`]
     );
     
-    if (!agents.length) {
+    if (!agents || agents.length === 0) {
       // 如果没有匹配，返回模拟响应
       return res.json({
         id: 'agentcore-' + uuidv4().substring(0, 8),
@@ -1554,9 +1554,9 @@ app.post('/api/v1/chat/completions', async (req, res) => {
         }
       });
     }
-    
+
     const agent = agents[0];
-    
+
     // 执行任务并返回
     res.json({
       id: 'agentcore-' + uuidv4().substring(0, 8),
@@ -1600,7 +1600,7 @@ app.post('/api/v1/chat/completions', async (req, res) => {
 app.get('/api/v1/models', async (req, res) => {
   try {
     const agents = await query('SELECT * FROM agents WHERE status = ?', ['active']);
-    
+
     const models = agents.map(a => ({
       id: 'agent-' + a.type,
       name: a.name,
@@ -1611,7 +1611,7 @@ app.get('/api/v1/models', async (req, res) => {
         completion: '0.001'
       }
     }));
-    
+
     // 添加默认模型
     models.unshift({
       id: 'agent-general',
@@ -1623,7 +1623,7 @@ app.get('/api/v1/models', async (req, res) => {
         completion: '0.001'
       }
     });
-    
+
     res.json({
       object: 'list',
       data: models
@@ -1638,7 +1638,7 @@ app.get('/api/v1/credits', async (req, res) => {
   try {
     const [total] = await query('SELECT SUM(core_balance) as total FROM agents');
     const [usage] = await query('SELECT COUNT(*) as count FROM skill_calls');
-    
+
     res.json({
       object: 'credits',
       data: {
