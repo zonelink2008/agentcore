@@ -85,27 +85,6 @@ python3 -m http.server 8080
 | `/api/tasks/:id/subtasks` | GET | 子任务状态 |
 | `/api/tasks/:id/aggregate` | POST | 聚合结果 |
 
-### 技能市场
-| API | 方法 | 说明 |
-|-----|------|------|
-| `/api/skills/publish` | POST | 上架技能 |
-| `/api/skills/call` | POST | 调用技能 |
-| `/api/skills/list` | GET | 技能列表 |
-
-### 数据市场
-| API | 方法 | 说明 |
-|-----|------|------|
-| `/api/data/publish` | POST | 上架数据 |
-| `/api/data/call` | POST | DaaS 调用 |
-| `/api/data/buy` | POST | 购买数据 |
-| `/api/data/download` | GET | 下载数据 |
-
-### 算力市场
-| API | 方法 | 说明 |
-|-----|------|------|
-| `/api/compute/lease` | POST | 出租算力 |
-| `/api/compute/rent` | POST | 租用算力 |
-
 ---
 
 ## 商业模式
