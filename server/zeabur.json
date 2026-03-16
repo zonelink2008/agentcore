@@ -10,5 +10,8 @@
   "start": {
     "command": "node index.js",
     "timeoutSeconds": 60
+  },
+  "env": {
+    "OPENROUTER_API_KEY": "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"
   }
 }

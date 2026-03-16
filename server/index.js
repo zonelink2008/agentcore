@@ -1735,3 +1735,63 @@ app.post('/api/agents/call-skill', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`AgentCore API running on port ${PORT}`);
 });
+
+// ============== Expert API ==============
+const experts = require('./experts/dispatch');
+
+// 获取所有专家
+app.get('/api/experts', (req, res) => {
+  const { EXPERTS } = experts;
+  const list = Object.values(EXPERTS).map(e => ({
+    id: e.id,
+    name: e.name,
+    category: e.category,
+    subcategories: e.subcategories,
+    tags: e.tags,
+    description: e.description,
+    basePrice: e.basePrice
+  }));
+  res.json({ success: true, experts: list });
+});
+
+// 获取单个专家
+app.get('/api/experts/:id', (req, res) => {
+  const { EXPERTS } = experts;
+  const expert = Object.values(EXPERTS).find(e => e.name === req.params.id);
+  if (!expert) {
+    return res.status(404).json({ error: 'Expert not found' });
+  }
+  res.json({ success: true, expert: { ...expert, systemPrompt: '[HIDDEN]' } });
+});
+
+// 分发任务到专家
+app.post('/api/experts/dispatch', async (req, res) => {
+  const { description, category, budget } = req.body;
+  
+  if (!description) {
+    return res.status(400).json({ error: 'description is required' });
+  }
+  
+  try {
+    // 简单任务分析
+    const task = { description, budget: budget || { min: 0.05, max: 0.20 } };
+    
+    // 调用 Expert 框架
+    const result = await experts.dispatchTask(task);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        expert: result.expert,
+        result: result.result,
+        cost: result.cost,
+        price: result.price
+      });
+    } else {
+      res.status(500).json({ error: result.error || 'Task execution failed' });
+    }
+  } catch (error) {
+    console.error('Expert dispatch error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
