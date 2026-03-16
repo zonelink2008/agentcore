@@ -1765,9 +1765,12 @@ app.get('/api/experts/:id', (req, res) => {
   res.json({ success: true, expert: { ...expert, systemPrompt: '[HIDDEN]' } });
 });
 
-// 分发任务到专家
+// 分发任务到专家 (测试开放)
 app.post('/api/experts/dispatch', async (req, res) => {
-  const { description, category, budget } = req.body;
+  const { description, category, budget, api_key } = req.body;
+  
+  // 简单测试认证 (可以传入 api_key: "test" 或忽略)
+  // 后续可以扩展为真正的 API Key 机制
   
   if (!description) {
     return res.status(400).json({ error: 'description is required' });
