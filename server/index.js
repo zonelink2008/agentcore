@@ -1554,6 +1554,76 @@ app.get('/api/agents/recommend', async (req, res) => {
   }
 });
 
+// ===== Agent 路由执行 =====
+app.post('/api/agents/route', async (req, res) => {
+  try {
+    const { task, task_type, budget, caller_id } = req.body;
+    
+    // 1. 智能匹配最佳 Agent
+    let agents = await query("SELECT * FROM agents WHERE status = 'active'");
+    
+    if (task_type) {
+      agents = agents.filter(a => a.type === task_type);
+    }
+    
+    // 2. 如果没有指定类型，根据任务关键词智能判断
+    if (!task_type && task) {
+      const taskLower = task.toLowerCase();
+      if (taskLower.includes('股票') || taskLower.includes('stock')) {
+        agents = agents.filter(a => a.type === 'stock');
+      } else if (taskLower.includes('币') || taskLower.includes('crypto') || taskLower.includes('比特币')) {
+        agents = agents.filter(a => a.type === 'crypto');
+      } else if (taskLower.includes('模型') || taskLower.includes('训练') || taskLower.includes('ml')) {
+        agents = agents.filter(a => a.type === 'ml');
+      } else if (taskLower.includes('数据') || taskLower.includes('清洗')) {
+        agents = agents.filter(a => a.type === 'data');
+      } else if (taskLower.includes('文案') || taskLower.includes('创作') || taskLower.includes('图片')) {
+        agents = agents.filter(a => a.type === 'creative');
+      }
+    }
+    
+    // 3. 按余额排序，选最优
+    agents = agents.sort((a, b) => (b.core_balance || 0) - (a.core_balance || 0));
+    const bestAgent = agents[0];
+    
+    if (!bestAgent) {
+      return res.json({
+        success: false,
+        message: '没有找到合适的 Agent',
+        recommendations: []
+      });
+    }
+    
+    // 4. 检查预算
+    const actualBudget = budget || 50;
+    if (bestAgent.core_balance < actualBudget) {
+      return res.json({
+        success: false,
+        message: '预算不足',
+        agent: bestAgent,
+        required: actualBudget,
+        available: bestAgent.core_balance
+      });
+    }
+    
+    // 5. 返回匹配结果
+    res.json({
+      success: true,
+      matched_agent: {
+        id: bestAgent.id,
+        name: bestAgent.name,
+        type: bestAgent.type,
+        description: bestAgent.description
+      },
+      task: task,
+      estimated_cost: actualBudget,
+      message: `已智能匹配 Agent: ${bestAgent.name}`
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`AgentCore API running on port ${PORT}`);
 });
