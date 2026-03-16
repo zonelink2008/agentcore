@@ -608,6 +608,76 @@ app.get('/api/data/call-logs', async (req, res) => {
   }
 });
 
+// 购买数据
+app.post('/api/data/buy', async (req, res) => {
+  try {
+    const { data_id, buyer_id } = req.body;
+    
+    const [data] = await query('SELECT * FROM data_market WHERE id = ?', [data_id]);
+    if (!data) {
+      return res.status(404).json({ error: 'Data not found' });
+    }
+    
+    const [buyer] = await query('SELECT * FROM agents WHERE id = ?', [buyer_id]);
+    if (!buyer || buyer.core_balance < data.price) {
+      return res.status(400).json({ error: 'Insufficient balance' });
+    }
+    
+    // 扣款
+    await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [data.price, buyer_id]);
+    
+    // 给卖家付款
+    if (data.seller_id) {
+      await query('UPDATE agents SET core_balance = core_balance + ? WHERE id = ?', [data.price, data.seller_id]);
+    }
+    
+    // 记录购买
+    await query(
+      'INSERT INTO data_purchases (data_id, buyer_id, seller_id, price) VALUES (?, ?, ?, ?)',
+      [data_id, buyer_id, data.seller_id, data.price]
+    );
+    
+    // 更新销量
+    await query('UPDATE data_market SET sales = sales + 1 WHERE id = ?', [data_id]);
+    
+    res.json({ success: true, remainingBalance: buyer.core_balance - data.price });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 下载数据
+app.get('/api/data/download/:id', async (req, res) => {
+  try {
+    const dataId = req.params.id;
+    const buyerId = req.query.buyer_id;
+    
+    // 检查是否已购买
+    const [purchase] = await query(
+      'SELECT * FROM data_purchases WHERE data_id = ? AND buyer_id = ? AND status = ?',
+      [dataId, buyerId, 'completed']
+    );
+    
+    if (!purchase) {
+      return res.status(403).json({ error: 'Please purchase first' });
+    }
+    
+    const [data] = await query('SELECT * FROM data_market WHERE id = ?', [dataId]);
+    if (!data) {
+      return res.status(404).json({ error: 'Data not found' });
+    }
+    
+    res.json({
+      name: data.name,
+      content: data.content,
+      data_type: data.data_type,
+      purchased_at: purchase.created_at
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // 排行榜
 app.get('/api/leaderboard', async (req, res) => {
   try {
@@ -689,6 +759,33 @@ app.post('/api/compute/rent', async (req, res) => {
   try {
     const { compute_id, buyer_id, hours } = req.body;
     res.json({ success: true, message: '算力租用功能开发中' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 出租算力（发布算力）
+app.post('/api/compute/lease', async (req, res) => {
+  try {
+    const { provider_id, provider_name, gpu_type, gpu_count, price_per_hour } = req.body;
+    
+    const id = uuidv4();
+    await query(
+      'INSERT INTO compute_listings (id, provider_id, provider_name, gpu_type, gpu_count, price_per_hour, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, provider_id, provider_name, gpu_type, gpu_count, price_per_hour, 'available']
+    );
+    
+    res.json({ success: true, id, message: '算力上架成功' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 获取算力出租列表
+app.get('/api/compute/listings', async (req, res) => {
+  try {
+    const listings = await query("SELECT * FROM compute_listings WHERE status = 'available' ORDER BY created_at DESC");
+    res.json(listings);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

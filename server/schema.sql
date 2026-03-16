@@ -71,6 +71,17 @@ CREATE TABLE IF NOT EXISTS data_call_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 数据购买表
+CREATE TABLE IF NOT EXISTS data_purchases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  data_id UUID REFERENCES data_market(id),
+  buyer_id UUID REFERENCES users(id),
+  seller_id UUID REFERENCES agents(id),
+  price INTEGER,
+  status TEXT DEFAULT 'completed',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 算力交易表
 CREATE TABLE IF NOT EXISTS compute_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,5 +90,17 @@ CREATE TABLE IF NOT EXISTS compute_orders (
   amount INTEGER,
   price INTEGER,
   status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 算力出租表
+CREATE TABLE IF NOT EXISTS compute_listings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id UUID REFERENCES agents(id),
+  provider_name TEXT,
+  gpu_type TEXT,
+  gpu_count INTEGER,
+  price_per_hour INTEGER,
+  status TEXT DEFAULT 'available',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

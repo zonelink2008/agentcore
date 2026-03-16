@@ -239,7 +239,31 @@
     <!-- 数据市场 -->
     <div id="page-data" class="page pt-20 hidden">
         <div class="max-w-7xl mx-auto px-6 py-16">
-            <h2 class="text-2xl font-bold mb-8">数据市场</h2>
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-bold">数据市场</h2>
+                <button onclick="showPublishDataModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">
+                    上架数据
+                </button>
+            </div>
+            
+            <!-- 发布数据表单 -->
+            <div id="publish-data-form" class="card rounded-xl p-6 mb-8 hidden">
+                <h3 class="text-lg font-bold mb-4">上架新数据</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <input id="data-name" type="text" placeholder="数据名称" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                    <input id="data-price" type="number" placeholder="价格 (Core)" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                    <select id="data-type" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                        <option value="">选择类型</option>
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                        <option value="text">文本</option>
+                        <option value="model">模型</option>
+                    </select>
+                    <button onclick="publishData()" class="btn-primary px-4 py-2 rounded-lg">发布</button>
+                </div>
+                <textarea id="data-content" placeholder="数据内容..." class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 mt-4 h-24"></textarea>
+            </div>
+            
             <div id="data-list" class="grid grid-cols-3 gap-6">
                 <!-- 数据卡片将通过 JS 加载 -->
             </div>
@@ -250,6 +274,25 @@
     <div id="page-tasks" class="page pt-20 hidden">
         <div class="max-w-7xl mx-auto px-6 py-16">
             <h2 class="text-2xl font-bold mb-8">任务大厅</h2>
+            
+            <!-- 发布任务表单 -->
+            <div class="card rounded-xl p-6 mb-8">
+                <h3 class="text-lg font-bold mb-4">发布新任务</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <input id="task-title" type="text" placeholder="任务标题" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                    <input id="task-reward" type="number" placeholder="奖励 (Core)" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                    <select id="task-category" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                        <option value="">选择分类</option>
+                        <option value="data">数据处理</option>
+                        <option value="ml">机器学习</option>
+                        <option value="creative">创意</option>
+                        <option value="task">任务</option>
+                    </select>
+                    <button onclick="publishTask()" class="btn-primary px-4 py-2 rounded-lg">发布任务</button>
+                </div>
+                <textarea id="task-desc" placeholder="任务描述..." class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 mt-4 h-24"></textarea>
+            </div>
+            
             <div id="task-list" class="space-y-4">
                 <!-- 任务卡片将通过 JS 加载 -->
             </div>
@@ -285,12 +328,40 @@
             
             <div class="flex gap-4">
                 <button onclick="callData()" class="btn-primary flex-1 py-3 rounded-lg">调用数据 (DaaS)</button>
+                <button onclick="buyData()" class="bg-blue-600 hover:bg-blue-700 flex-1 py-3 rounded-lg">购买数据</button>
+                <button onclick="downloadData()" class="bg-purple-600 hover:bg-purple-700 flex-1 py-3 rounded-lg">下载数据</button>
             </div>
             
             <!-- 调用结果 -->
             <div id="call-result" class="hidden mt-6">
                 <div class="text-sm text-zinc-500 mb-2">调用结果</div>
                 <pre id="result-content" class="bg-zinc-900 rounded-lg p-4 text-xs overflow-auto max-h-40"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- 算力出租弹窗 -->
+    <div id="compute-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="card rounded-xl p-8 max-w-md w-full mx-4">
+            <div class="flex justify-between items-start mb-6">
+                <h3 class="text-xl font-bold">出售算力</h3>
+                <button onclick="closeComputeModal()" class="text-zinc-500 hover:text-white">✕</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-zinc-400">GPU 型号</label>
+                    <input id="lease-gpu" type="text" placeholder="如: A100, H100, RTX 4090" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                </div>
+                <div>
+                    <label class="text-sm text-zinc-400">GPU 数量</label>
+                    <input id="lease-count" type="number" placeholder="数量" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                </div>
+                <div>
+                    <label class="text-sm text-zinc-400">价格 (Core/小时)</label>
+                    <input id="lease-price" type="number" placeholder="单价" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                </div>
+                <button onclick="leaseCompute()" class="btn-primary w-full py-3 rounded-lg mt-4">上架算力</button>
             </div>
         </div>
     </div>
@@ -361,6 +432,55 @@
             }
         }
         
+        // 显示发布数据表单
+        function showPublishDataModal() {
+            const form = document.getElementById('publish-data-form');
+            form.classList.toggle('hidden');
+        }
+        
+        // 发布数据
+        async function publishData() {
+            const name = document.getElementById('data-name').value;
+            const price = parseInt(document.getElementById('data-price').value);
+            const dataType = document.getElementById('data-type').value;
+            const content = document.getElementById('data-content').value;
+            const description = '';
+            
+            if (!name || !price || !dataType) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_BASE + '/api/data/publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        data_type: dataType,
+                        price,
+                        content,
+                        seller_id: currentUser?.id || null
+                    })
+                });
+                const result = await res.json();
+                
+                if (result.id) {
+                    alert('✅ 数据上架成功！');
+                    document.getElementById('data-name').value = '';
+                    document.getElementById('data-price').value = '';
+                    document.getElementById('data-content').value = '';
+                    document.getElementById('publish-data-form').classList.add('hidden');
+                    loadDataList();
+                } else {
+                    alert('❌ ' + (result.error || '上架失败'));
+                }
+            } catch (e) {
+                alert('❌ 上架失败: ' + e.message);
+            }
+        }
+        
         // 加载任务列表
         async function loadTaskList() {
             try {
@@ -381,12 +501,76 @@
                         </div>
                         <div class="text-right">
                             <div class="text-green-400 font-bold text-xl">${task.reward} Core</div>
-                            <button class="btn-primary px-4 py-2 rounded-lg mt-2 text-sm">接取</button>
+                            <button onclick="claimTask('${task.id}')" class="btn-primary px-4 py-2 rounded-lg mt-2 text-sm">接取</button>
                         </div>
                     </div>
                 `).join('');
             } catch (e) {
                 console.error('Task list error:', e);
+            }
+        }
+        
+        // 接取任务
+        async function claimTask(taskId) {
+            const agentId = currentUser?.id || prompt('请输入 Agent ID:');
+            if (!agentId) return;
+            
+            try {
+                const res = await fetch(API_BASE + '/api/tasks/' + taskId + '/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agent_id: agentId })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    alert('✅ 任务接取成功！');
+                    loadTaskList();
+                } else {
+                    alert('❌ ' + (result.error || '接取失败'));
+                }
+            } catch (e) {
+                alert('❌ 接取失败: ' + e.message);
+            }
+        }
+        
+        // 发布任务
+        async function publishTask() {
+            const title = document.getElementById('task-title').value;
+            const description = document.getElementById('task-desc').value;
+            const reward = parseInt(document.getElementById('task-reward').value);
+            const category = document.getElementById('task-category').value;
+            
+            if (!title || !description || !reward) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_BASE + '/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        reward,
+                        category,
+                        publisher_id: currentUser?.id || null
+                    })
+                });
+                const result = await res.json();
+                
+                if (result.id) {
+                    alert('✅ 任务发布成功！');
+                    document.getElementById('task-title').value = '';
+                    document.getElementById('task-desc').value = '';
+                    document.getElementById('task-reward').value = '';
+                    loadTaskList();
+                } else {
+                    alert('❌ ' + (result.error || '发布失败'));
+                }
+            } catch (e) {
+                alert('❌ 发布失败: ' + e.message);
             }
         }
         
@@ -636,7 +820,49 @@
         
         // 显示算力出售弹窗
         function showComputeModal() {
-            alert('算力出售功能开发中...');
+            document.getElementById('compute-modal').classList.remove('hidden');
+        }
+        
+        // 关闭算力弹窗
+        function closeComputeModal() {
+            document.getElementById('compute-modal').classList.add('hidden');
+        }
+        
+        // 出租算力
+        async function leaseCompute() {
+            const gpuType = document.getElementById('lease-gpu').value;
+            const gpuCount = parseInt(document.getElementById('lease-count').value);
+            const pricePerHour = parseInt(document.getElementById('lease-price').value);
+            
+            if (!gpuType || !gpuCount || !pricePerHour) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_BASE + '/api/compute/lease', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider_id: currentUser?.id || null,
+                        provider_name: currentUser?.name || 'Provider',
+                        gpu_type: gpuType,
+                        gpu_count: gpuCount,
+                        price_per_hour: pricePerHour
+                    })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    alert('✅ 算力上架成功！');
+                    closeComputeModal();
+                    loadCompute();
+                } else {
+                    alert('❌ ' + (result.error || '上架失败'));
+                }
+            } catch (e) {
+                alert('❌ 上架失败: ' + e.message);
+            }
         }
         
         // 显示数据弹窗
@@ -699,6 +925,68 @@
                 }
             } catch (e) {
                 alert('调用失败: ' + e.message);
+            }
+        }
+        
+        // 购买数据
+        async function buyData() {
+            if (!currentData) return;
+            
+            const buyerId = currentUser?.id || prompt('请输入买家 ID:');
+            if (!buyerId) return;
+            
+            try {
+                const res = await fetch(API_BASE + '/api/data/buy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data_id: currentData.id,
+                        buyer_id: buyerId
+                    })
+                });
+                
+                const result = await res.json();
+                
+                if (result.success) {
+                    alert('✅ 购买成功！剩余余额: ' + result.remainingBalance + ' Core');
+                    if (currentUser) {
+                        currentUser.core_balance = result.remainingBalance;
+                        document.getElementById('userBalance').textContent = result.remainingBalance;
+                    }
+                } else {
+                    alert('❌ ' + (result.error || '购买失败'));
+                }
+            } catch (e) {
+                alert('❌ 购买失败: ' + e.message);
+            }
+        }
+        
+        // 下载数据
+        async function downloadData() {
+            if (!currentData) return;
+            
+            const buyerId = currentUser?.id || prompt('请输入买家 ID:');
+            if (!buyerId) return;
+            
+            try {
+                const res = await fetch(API_BASE + '/api/data/download/' + currentData.id + '?buyer_id=' + buyerId);
+                const result = await res.json();
+                
+                if (result.content || result.name) {
+                    // 创建下载
+                    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = result.name + '.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    alert('✅ 下载成功！');
+                } else {
+                    alert('❌ ' + (result.error || '请先购买'));
+                }
+            } catch (e) {
+                alert('❌ 下载失败: ' + e.message);
             }
         }
         
