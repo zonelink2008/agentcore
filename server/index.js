@@ -1738,10 +1738,11 @@ app.listen(PORT, () => {
 
 // ============== Expert API ==============
 const experts = require('./experts/dispatch');
+const expertsIndex = require('./experts/index');
 
 // 获取所有专家
 app.get('/api/experts', (req, res) => {
-  const { EXPERTS } = experts;
+  const { EXPERTS } = expertsIndex;
   const list = Object.values(EXPERTS).map(e => ({
     id: e.id,
     name: e.name,
