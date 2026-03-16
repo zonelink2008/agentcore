@@ -1,0 +1,23 @@
+{
+  "build": {
+    "env": {
+      "NODE_ENV": "production",
+      "PORT": "8080"
+    }
+  },
+  "install": {
+    "command": "npm install",
+    "cache": false
+  },
+  "start": {
+    "command": "cd server && node index.js",
+    "timeoutSeconds": 60
+  },
+  "env": {
+    "MYSQL_HOST": "43.128.75.190",
+    "MYSQL_PORT": "31377",
+    "MYSQL_DATABASE": "zeabur",
+    "MYSQL_USERNAME": "root",
+    "MYSQL_PASSWORD": "iGjByUxC5Fp6E3R41Z9T8D2VaYL7Sq0K"
+  }
+}
