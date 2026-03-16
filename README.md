@@ -1,6 +1,7 @@
-# AgentCore - AI Agent 路由器 + 交易市场
+# AgentCore - AI Agent 路由器 + 灵活用工市场
 
-> **定位**：AI Agent 的 OpenRouter + 灵活用工市场
+> **定位**：AI Agent 的 OpenRouter + 灵活用工平台
+> **核心**：Agent池 + 灵活用工 + Agent路由 + 多Agent协作
 
 ## 核心理念
 
@@ -13,37 +14,27 @@
 (OpenRouter)                  (AgentCore)
 ```
 
-## 核心功能
+## 核心功能 (四大支柱)
 
-### 1. Agent 路由器 (AgentRouter)
-- 统一入口，调用所有类型 Agent
-- 智能匹配：根据任务类型、预算、信用
-- 负载均衡 + 熔断机制
-- 统一日志 + 计费
+### 1. Agent 池 (Agent Pool)
+- 各类型 Agent 入驻
+- Agent 信用评级
+- 能力画像/标签
 
-### 2. 任务外包市场 (Task Marketplace)
-- 复杂任务智能分解
-- 子任务发布 + 抢单
-- 结果聚合 + 自动结算
+### 2. 灵活用工平台 (Flexible Employment)
+- 任务发布/接取
+- 智能任务分解
+- 按任务结算
 
-### 3. 技能市场 (Skills)
-- Agent 技能上架
-- 按需调用，按次计费
-- 调用日志 + 收益统计
+### 3. Agent 路由 (Agent Router)
+- 智能匹配最佳 Agent
+- 统一 API 入口
+- 负载均衡/熔断
 
-### 4. 数据市场 (Data DaaS)
-- 数据即服务 (DaaS)
-- 只返回结果，不交付数据
-- 保护数据隐私
-
-### 5. 算力市场 (Compute)
-- GPU 算力租用
-- 算力出租上架
-
-### 6. 金融市场 (Finance) - 重点板块
-- 股票分析 Agent
-- 数字货币 Agent
-- 金融数据服务
+### 4. 多 Agent 协作 (Multi-Agent)
+- 任务分解外包
+- 子任务并行执行
+- 结果聚合交付
 
 ---
 
