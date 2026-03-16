@@ -1,12 +1,141 @@
 /**
- * AgentCore 任务匹配 & 路由系统
+ * AgentCore 任务匹配 & 路由系统 v1.0
  */
 
 const expertsIndex = require('./index');
 const { ALL_EXPERTS, generateAllExperts } = require('./generator');
+const { analyze: llmAnalyze } = require('./llm-analyzer');
 
 // ============== 任务分析器 ==============
 class TaskAnalyzer {
+  /**
+   * 综合分析: LLM + 规则
+   */
+  static async analyze(taskDescription) {
+    // 1. 先用 LLM 分析
+    const llmResult = await llmAnalyze(taskDescription);
+    
+    if (llmResult.success) {
+      return {
+        method: 'llm',
+        intent: llmResult.intent,
+        category: this.mapToFinance(llmResult.category),
+        subcategory: llmResult.subcategory || this.ruleBasedAnalyze(taskDescription).subcategory,
+        requirements: llmResult.requirements || [],
+        entities: llmResult.entities || {},
+        sentiment: llmResult.sentiment || '中性',
+        urgency: llmResult.urgency || 'normal',
+        raw: llmResult.raw
+      };
+    }
+    
+    // 2. LLM 失败，降级到规则
+    return this.ruleBasedAnalyze(taskDescription);
+  }
+  
+  /**
+   * 映射 LLM 类别到 finance
+   */
+  static mapToFinance(category) {
+    const map = {
+      '股票': 'finance',
+      '基金': 'finance', 
+      '加密货币': 'finance',
+      '房产': 'finance',
+      '综合': 'finance',
+      'unknown': 'finance'
+    };
+    return map[category] || 'finance';
+  }
+  
+  /**
+   * 规则匹配分析 (降级用)
+   */
+  static ruleBasedAnalyze(taskDescription) {
+    const desc = taskDescription.toLowerCase();
+    
+    // 检测意图
+    let intent = '学习';
+    if (desc.includes('分析') || desc.includes('怎么样')) intent = '分析';
+    else if (desc.includes('推荐') || desc.includes('买') || desc.includes('卖')) intent = '推荐';
+    else if (desc.includes('能') || desc.includes('是否') || desc.includes('可以')) intent = '咨询';
+    else if (desc.includes('配置') || desc.includes('分配')) intent = '配置';
+    
+    // 检测类别
+    let category = 'finance';
+    for (const [cat, keywords] of Object.entries(TaskAnalyzer.CATEGORY_KEYWORDS)) {
+      for (const keyword of keywords) {
+        if (desc.includes(keyword.toLowerCase())) {
+          category = cat;
+          break;
+        }
+      }
+    }
+    
+    // 检测子类
+    let subcategory = null;
+    for (const [sub, keywords] of Object.entries(TaskAnalyzer.SUBCATEGORY_KEYWORDS)) {
+      for (const keyword of keywords) {
+        if (desc.includes(keyword.toLowerCase())) {
+          subcategory = sub;
+          break;
+        }
+      }
+    }
+    
+    return {
+      method: 'rule',
+      intent,
+      category,
+      subcategory,
+      requirements: ['通用'],
+      entities: {},
+      sentiment: '中性',
+      urgency: 'normal'
+    };
+  }
+  
+  /**
+   * 检测意图 (静态)
+   */
+  static detectIntentStatic(desc) {
+    if (desc.includes('分析') || desc.includes('怎么样')) return '分析';
+    if (desc.includes('推荐') || desc.includes('买') || desc.includes('卖')) return '推荐';
+    if (desc.includes('能') || desc.includes('是否') || desc.includes('可以')) return '咨询';
+    if (desc.includes('配置') || desc.includes('分配')) return '配置';
+    return '学习';
+  }
+  
+  /**
+   * 检测类别 (静态)
+   */
+  static detectCategory(desc) {
+    for (const [category, keywords] of Object.entries(TaskAnalyzer.CATEGORY_KEYWORDS)) {
+      for (const keyword of keywords) {
+        if (desc.includes(keyword.toLowerCase())) {
+          return category;
+        }
+      }
+    }
+    return 'finance';
+  }
+
+  /**
+   * 检测子类 (静态)
+   */
+  static detectSubcategoryStatic(desc) {
+    const subKeywords = TaskAnalyzer.SUBCATEGORY_KEYWORDS;
+    
+    for (const [sub, keywords] of Object.entries(subKeywords)) {
+      for (const keyword of keywords) {
+        if (desc.includes(keyword.toLowerCase())) {
+          return sub;
+        }
+      }
+    }
+    return null;
+  }
+
   // 只做投资领域 - 所有相关关键词都映射到 finance
   static CATEGORY_KEYWORDS = {
     finance: [
@@ -273,9 +402,9 @@ class Router {
   async route(task, options = {}) {
     const { limit = 3, strategy = 'optimal' } = options;
     
-    // 1. 任务分析
-    const analysis = this.analyzer.analyze(task);
-    console.log('📋 Task Analysis:', analysis);
+    // 1. 任务分析 (LLM + 规则)
+    const analysis = await TaskAnalyzer.analyze(task.description);
+    console.log('📋 Task Analysis:', JSON.stringify(analysis, null, 2));
     
     // 2. 获取候选专家
     let candidates = this.index.queryBySubcategory(
