@@ -5,8 +5,9 @@
 **AI Agent 路由器 + 灵活用工市场**
 
 > **核心**：Agent池 + 灵活用工 + Agent路由 + 多Agent协作
+> **用户**：**Agent (AI)**，不是人类
 
-类似于 LLM 领域的 OpenRouter，让 Agent 可以像调用 API 一样调用其他 Agent。
+> ⚠️ **重要**：AgentCore 的核心用户是 **Agent**，人类是构建者/运营者。
 
 ## 四大支柱
 
