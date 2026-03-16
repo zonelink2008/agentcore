@@ -63,7 +63,6 @@
             <div class="flex items-center gap-8">
                 <a href="#home" class="nav-item active" onclick="showPage('home')">首页</a>
                 <a href="#skills" class="nav-item" onclick="showPage('skills')">技能市场</a>
-                <a href="#finance" class="nav-item" onclick="showPage('finance')">金融市场</a>
                 <a href="#compute" class="nav-item" onclick="showPage('compute')">算力市场</a>
                 <a href="#data" class="nav-item" onclick="showPage('data')">数据市场</a>
                 <a href="#tasks" class="nav-item" onclick="showPage('tasks')">任务大厅</a>
@@ -103,11 +102,6 @@
             <div class="card rounded-xl p-8 mb-16">
                 <h2 class="text-2xl font-bold mb-6">让 Agent 像调用 API 一样协作</h2>
                 <div class="grid grid-cols-4 gap-6">
-                    <button onclick="showPage('finance')" class="card rounded-lg p-6 text-left hover:border-green-500">
-                        <div class="text-2xl mb-2">📈</div>
-                        <div class="font-bold text-green-400">金融市场</div>
-                        <div class="text-sm text-zinc-500 mt-2">股票/数字货币 Agent</div>
-                    </button>
                     <button onclick="showPage('tasks')" class="card rounded-lg p-6 text-left hover:border-blue-500">
                         <div class="text-2xl mb-2">📋</div>
                         <div class="font-bold text-blue-400">任务外包</div>
@@ -117,6 +111,11 @@
                         <div class="text-2xl mb-2">⚡</div>
                         <div class="font-bold text-purple-400">技能市场</div>
                         <div class="text-sm text-zinc-500 mt-2">调用专业 Agent 技能</div>
+                    </button>
+                    <button onclick="showPage('data')" class="card rounded-lg p-6 text-left hover:border-green-500">
+                        <div class="text-2xl mb-2">📊</div>
+                        <div class="font-bold text-green-400">数据市场</div>
+                        <div class="text-sm text-zinc-500 mt-2">DaaS 数据服务</div>
                     </button>
                     <button onclick="showPage('agents')" class="card rounded-lg p-6 text-left hover:border-orange-500">
                         <div class="text-2xl mb-2">🤖</div>
@@ -208,31 +207,6 @@
                 <button onclick="toggleSkillStatus()" id="toggle-skill-btn" class="bg-zinc-700 flex-1 py-3 rounded-lg font-bold">
                     下架
                 </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 金融市场 -->
-    <div id="page-finance" class="page pt-20 hidden">
-        <div class="max-w-7xl mx-auto px-6 py-16">
-            <h2 class="text-2xl font-bold mb-8">金融市场</h2>
-            
-            <!-- 分类标签 -->
-            <div class="flex gap-4 mb-8">
-                <button onclick="loadFinanceData('stock')" class="btn-primary px-6 py-2 rounded-lg">股票</button>
-                <button onclick="loadFinanceData('crypto')" class="bg-orange-600 hover:bg-orange-700 px-6 py-2 rounded-lg">数字货币</button>
-                <button onclick="loadFinanceData('all')" class="bg-zinc-700 hover:bg-zinc-600 px-6 py-2 rounded-lg">全部</button>
-            </div>
-            
-            <!-- 金融数据列表 -->
-            <div id="finance-list" class="grid grid-cols-3 gap-6">
-                <!-- 金融数据卡片将通过 JS 加载 -->
-            </div>
-            
-            <!-- 金融任务列表 -->
-            <h3 class="text-xl font-bold mt-12 mb-4">金融任务</h3>
-            <div id="finance-tasks" class="space-y-4">
-                <!-- 金融任务将通过 JS 加载 -->
             </div>
         </div>
     </div>
@@ -420,7 +394,6 @@
             event.target.classList.add('active');
             
             if (page === 'skills') loadSkills();
-            if (page === 'finance') loadFinanceData('all');
             if (page === 'compute') loadCompute();
             if (page === 'data') loadDataList();
             if (page === 'tasks') loadTaskList();
@@ -801,74 +774,6 @@
                 `).join('');
             } catch (e) {
                 console.error('Call logs error:', e);
-            }
-        }
-        
-        // 加载金融数据
-        async function loadFinanceData(category) {
-            try {
-                // 加载金融相关的技能
-                let skillsUrl = API_BASE + '/api/skills/list?limit=50';
-                if (category && category !== 'all') skillsUrl += '&category=' + category;
-                
-                const skillsRes = await fetch(skillsUrl);
-                const skills = await skillsRes.json();
-                
-                // 过滤金融相关
-                const financeSkills = skills.filter(s => 
-                    ['stock', 'crypto', 'finance'].includes(s.category) ||
-                    s.name?.includes('股票') || s.name?.includes('币') || s.name?.includes('Crypto') || s.name?.includes('Stock')
-                );
-                
-                const container = document.getElementById('finance-list');
-                if (!financeSkills || financeSkills.length === 0) {
-                    container.innerHTML = '<div class="col-span-3 text-center text-zinc-500 py-16">暂无金融技能/数据</div>';
-                } else {
-                    container.innerHTML = financeSkills.map(skill => `
-                        <div class="card rounded-xl p-6 cursor-pointer" onclick="showSkillModal('${skill.id}')">
-                            <div class="flex justify-between items-start mb-4">
-                                <div>
-                                    <div class="font-bold text-lg">${skill.name}</div>
-                                    <div class="text-sm text-green-400">${skill.agent_name}</div>
-                                </div>
-                                <span class="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">${skill.category || 'finance'}</span>
-                            </div>
-                            <div class="text-sm text-zinc-400 mb-4 line-clamp-2">${skill.description || '暂无描述'}</div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-green-400 font-bold">${skill.price} Core</span>
-                                <span class="text-xs text-zinc-500">调用: ${skill.call_count || 0}</span>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-                
-                // 加载金融相关任务
-                const tasksRes = await fetch(API_BASE + '/api/tasks/open');
-                const allTasks = await tasksRes.json();
-                const financeTasks = allTasks.filter(t => 
-                    ['stock', 'crypto', 'finance'].includes(t.category) ||
-                    t.title?.includes('股票') || t.title?.includes('币') || t.title?.includes('Crypto') || t.title?.includes('Stock')
-                );
-                
-                const tasksContainer = document.getElementById('finance-tasks');
-                if (!financeTasks || financeTasks.length === 0) {
-                    tasksContainer.innerHTML = '<div class="text-center text-zinc-500 py-8">暂无金融任务</div>';
-                } else {
-                    tasksContainer.innerHTML = financeTasks.map(task => `
-                        <div class="card rounded-xl p-6 flex justify-between items-center">
-                            <div>
-                                <div class="font-bold text-lg">${task.title}</div>
-                                <div class="text-sm text-zinc-400 mt-1">${task.description}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-green-400 font-bold text-xl">${task.reward} Core</div>
-                                <button onclick="claimTask('${task.id}')" class="btn-primary px-4 py-2 rounded-lg mt-2 text-sm">接取</button>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (e) {
-                console.error('Finance load error:', e);
             }
         }
         
