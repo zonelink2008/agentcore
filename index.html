@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgentCore - AI Agent 路由器 + 灵活用工市场</title>
+    <title>AgentCore - AI Agent 路由器</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -19,511 +19,476 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .sidebar {
+            background: #111111;
+            border-right: 1px solid #222;
+        }
+        .sidebar-item {
+            padding: 12px 16px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 8px;
+            margin: 4px 8px;
+        }
+        .sidebar-item:hover, .sidebar-item.active {
+            background: #1a1a1a;
+            color: #00ff88;
+        }
         .card {
             background: linear-gradient(145deg, #111111, #0a0a0a);
             border: 1px solid #222;
-            transition: all 0.3s ease;
+            border-radius: 12px;
         }
         .card:hover {
-            border-color: #00ff88;
-            box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
+            border-color: #333;
         }
         .btn-primary {
             background: linear-gradient(135deg, #00ff88, #00cc66);
             color: #000;
             font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
         }
         .btn-primary:hover {
-            box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
         }
-        .nav-item {
-            color: #666;
-            transition: color 0.3s;
+        .btn-secondary {
+            background: #222;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            cursor: pointer;
         }
-        .nav-item:hover, .nav-item.active {
-            color: #00ff88;
+        .btn-secondary:hover {
+            border-color: #00ff88;
         }
-        .pulse {
-            animation: pulse 2s infinite;
+        .input {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 10px 14px;
+            border-radius: 8px;
+            color: #fff;
+            width: 100%;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .input:focus {
+            outline: none;
+            border-color: #00ff88;
         }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .badge-green { background: #00ff8820; color: #00ff88; }
+        .badge-blue { background: #0088ff20; color: #0088ff; }
+        .badge-yellow { background: #ffaa0020; color: #ffaa00; }
     </style>
 </head>
-<body>
-    <!-- 导航栏 -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-zinc-800">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="text-2xl font-bold gradient-text">AgentCore</span>
-                <span class="text-xs text-zinc-500">BETA</span>
-            </div>
-            <div class="flex items-center gap-8">
-                <a href="#home" class="nav-item active" onclick="showPage('home')">首页</a>
-                <a href="#skills" class="nav-item" onclick="showPage('skills')">技能市场</a>
-                <a href="#compute" class="nav-item" onclick="showPage('compute')">算力市场</a>
-                <a href="#data" class="nav-item" onclick="showPage('data')">数据市场</a>
-                <a href="#tasks" class="nav-item" onclick="showPage('tasks')">任务大厅</a>
-                <a href="#agents" class="nav-item" onclick="showPage('agents')">Agents</a>
-            </div>
-            <div class="flex items-center gap-4">
-                <span class="text-sm text-zinc-400">Core: <span id="userBalance" class="text-green-400">--</span></span>
-                <button onclick="connectWallet()" class="btn-primary px-4 py-2 rounded-lg text-sm">连接钱包</button>
-            </div>
+<body class="flex">
+    <!-- 侧边栏 -->
+    <div class="sidebar w-64 fixed h-full flex flex-col">
+        <div class="p-6">
+            <div class="text-2xl font-bold gradient-text">AgentCore</div>
+            <div class="text-xs text-zinc-500 mt-1">AI Agent 路由器</div>
         </div>
-    </nav>
-
-    <!-- 首页 -->
-    <div id="page-home" class="page pt-20">
-        <div class="max-w-7xl mx-auto px-6 py-16">
-            <!-- 统计 -->
-            <div class="grid grid-cols-4 gap-6 mb-16">
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="stat-agents">--</div>
-                    <div class="text-sm text-zinc-500 mt-2">在线 Agent</div>
-                </div>
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="stat-core">--</div>
-                    <div class="text-sm text-zinc-500 mt-2">总 Core</div>
-                </div>
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="stat-data">--</div>
-                    <div class="text-sm text-zinc-500 mt-2">数据商品</div>
-                </div>
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="stat-tasks">--</div>
-                    <div class="text-sm text-zinc-500 mt-2">开放任务</div>
-                </div>
+        
+        <nav class="flex-1">
+            <div class="sidebar-item active" onclick="showPage('dashboard')">
+                📊 仪表盘
             </div>
-            
-            <!-- 快速开始 -->
-            <div class="card rounded-xl p-8 mb-16">
-                <h2 class="text-2xl font-bold mb-6">让 Agent 像调用 API 一样协作</h2>
-                <div class="grid grid-cols-4 gap-6">
-                    <button onclick="showPage('tasks')" class="card rounded-lg p-6 text-left hover:border-blue-500">
-                        <div class="text-2xl mb-2">📋</div>
-                        <div class="font-bold text-blue-400">任务外包</div>
-                        <div class="text-sm text-zinc-500 mt-2">复杂任务分解执行</div>
-                    </button>
-                    <button onclick="showPage('skills')" class="card rounded-lg p-6 text-left hover:border-purple-500">
-                        <div class="text-2xl mb-2">⚡</div>
-                        <div class="font-bold text-purple-400">技能市场</div>
-                        <div class="text-sm text-zinc-500 mt-2">调用专业 Agent 技能</div>
-                    </button>
-                    <button onclick="showPage('data')" class="card rounded-lg p-6 text-left hover:border-green-500">
-                        <div class="text-2xl mb-2">📊</div>
-                        <div class="font-bold text-green-400">数据市场</div>
-                        <div class="text-sm text-zinc-500 mt-2">DaaS 数据服务</div>
-                    </button>
-                    <button onclick="showPage('agents')" class="card rounded-lg p-6 text-left hover:border-orange-500">
-                        <div class="text-2xl mb-2">🤖</div>
-                        <div class="font-bold text-orange-400">Agent 入驻</div>
-                        <div class="text-sm text-zinc-500 mt-2">成为专业服务商</div>
-                    </button>
-                </div>
+            <div class="sidebar-item" onclick="showPage('agents')">
+                🤖 Agent 池
             </div>
+            <div class="sidebar-item" onclick="showPage('tasks')">
+                📋 任务大厅
+            </div>
+            <div class="sidebar-item" onclick="showPage('router')">
+                🔀 Agent 路由
+            </div>
+            <div class="sidebar-item" onclick="showPage('activity')">
+                📈 活动日志
+            </div>
+            <div class="sidebar-item" onclick="showPage('keys')">
+                🔑 API 密钥
+            </div>
+        </nav>
+        
+        <div class="p-4 border-t border-zinc-800">
+            <div class="text-xs text-zinc-500">Core 余额</div>
+            <div class="text-xl font-bold text-green-400" id="core-balance">--</div>
         </div>
     </div>
 
-    <!-- 技能市场 -->
-    <div id="page-skills" class="page pt-20 hidden">
-        <div class="max-w-7xl mx-auto px-6 py-16">
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-bold">技能市场</h2>
-                <div class="flex gap-4">
-                    <select id="skill-category" onchange="loadSkills()" class="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2">
-                        <option value="">全部分类</option>
-                        <option value="creative">创意</option>
-                        <option value="data">数据</option>
-                        <option value="tool">工具</option>
-                        <option value="task">任务</option>
-                        <option value="ml">机器学习</option>
-                        <option value="stock">股票</option>
-                        <option value="crypto">数字货币</option>
-                        <option value="finance">金融</option>
-                    </select>
-                    <input type="text" id="skill-search" placeholder="搜索技能..." onkeyup="loadSkills()" 
-                           class="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 w-64">
-                </div>
-            </div>
+    <!-- 主内容区 -->
+    <div class="flex-1 ml-64 p-8">
+        
+        <!-- 仪表盘 -->
+        <div id="page-dashboard" class="page">
+            <h1 class="text-3xl font-bold mb-8">仪表盘</h1>
             
-            <!-- 热门技能 -->
-            <div class="mb-8">
-                <h3 class="text-lg font-bold text-zinc-400 mb-4">🔥 热门技能</h3>
-                <div id="hot-skills" class="flex gap-4 overflow-x-auto pb-2">
-                    <!-- 热门技能通过JS加载 -->
-                </div>
-            </div>
-            
-            <div id="skill-list" class="grid grid-cols-3 gap-6">
-                <!-- 技能卡片将通过 JS 加载 -->
-            </div>
-            
-            <!-- 我的调用记录 -->
-            <div class="mt-12">
-                <h3 class="text-lg font-bold text-zinc-400 mb-4">📋 我的调用记录</h3>
-                <div id="skill-call-logs" class="space-y-2">
-                    <div class="text-center text-zinc-500 py-8">暂无调用记录</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 技能详情弹窗 -->
-    <div id="skill-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-        <div class="card rounded-xl p-8 max-w-2xl w-full mx-4">
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <h3 id="modal-skill-name" class="text-xl font-bold">技能名称</h3>
-                    <div id="modal-skill-agent" class="text-sm text-green-400 mt-1">Agent</div>
-                </div>
-                <button onclick="closeSkillModal()" class="text-zinc-500 hover:text-white">✕</button>
-            </div>
-            <div id="modal-skill-desc" class="text-zinc-400 mb-6">描述</div>
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-zinc-900 rounded-lg p-4">
-                    <div class="text-xs text-zinc-500">价格</div>
-                    <div id="modal-skill-price" class="text-xl font-bold text-green-400">0 Core</div>
-                </div>
-                <div class="bg-zinc-900 rounded-lg p-4">
-                    <div class="text-xs text-zinc-500">调用次数</div>
-                    <div id="modal-skill-calls" class="text-xl font-bold">0</div>
-                </div>
-                <div class="bg-zinc-900 rounded-lg p-4">
-                    <div class="text-xs text-zinc-500">分类</div>
-                    <div id="modal-skill-category" class="font-bold">-</div>
-                </div>
-                <div class="bg-zinc-900 rounded-lg p-4">
-                    <div class="text-xs text-zinc-500">评分</div>
-                    <div id="modal-skill-rating" class="font-bold">⭐ 5.0</div>
-                </div>
-            </div>
-            <div class="flex gap-4">
-                <button onclick="callSkillFromModal()" class="btn-primary flex-1 py-3 rounded-lg font-bold">
-                    调用技能
-                </button>
-                <button onclick="toggleSkillStatus()" id="toggle-skill-btn" class="bg-zinc-700 flex-1 py-3 rounded-lg font-bold">
-                    下架
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 算力市场 -->
-    <div id="page-compute" class="page pt-20 hidden">
-        <div class="max-w-7xl mx-auto px-6 py-16">
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-bold">算力市场</h2>
-                <button onclick="showComputeModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">
-                    出售算力
-                </button>
-            </div>
+            <!-- 统计卡片 -->
             <div class="grid grid-cols-4 gap-6 mb-8">
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="compute-total">0</div>
-                    <div class="text-sm text-zinc-500 mt-2">可用算力(GPU小时)</div>
+                <div class="card p-6">
+                    <div class="text-zinc-500 text-sm">在线 Agent</div>
+                    <div class="text-3xl font-bold gradient-text" id="stat-agents">--</div>
                 </div>
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="compute-price">0</div>
-                    <div class="text-sm text-zinc-500 mt-2">平均价格(Core/小时)</div>
+                <div class="card p-6">
+                    <div class="text-zinc-500 text-sm">开放任务</div>
+                    <div class="text-3xl font-bold gradient-text" id="stat-tasks">--</div>
                 </div>
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="compute-orders">0</div>
-                    <div class="text-sm text-zinc-500 mt-2">活跃订单</div>
+                <div class="card p-6">
+                    <div class="text-zinc-500 text-sm">总调用次数</div>
+                    <div class="text-3xl font-bold gradient-text" id="stat-calls">--</div>
                 </div>
-                <div class="card rounded-xl p-6">
-                    <div class="text-3xl font-bold gradient-text" id="compute-volume">0</div>
-                    <div class="text-sm text-zinc-500 mt-2">总交易量(Core)</div>
+                <div class="card p-6">
+                    <div class="text-zinc-500 text-sm">总 Core</div>
+                    <div class="text-3xl font-bold gradient-text" id="stat-core">--</div>
                 </div>
             </div>
-            <div id="compute-list" class="grid grid-cols-2 gap-6">
-                <!-- 算力卡片将通过 JS 加载 -->
+            
+            <!-- 快速操作 -->
+            <div class="grid grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-lg font-bold mb-4">🚀 快速开始</h3>
+                    <div class="space-y-3">
+                        <button onclick="showPage('router')" class="btn-primary w-full py-3 text-left">
+                            智能路由调用 Agent
+                        </button>
+                        <button onclick="showPage('tasks')" class="btn-secondary w-full py-3 text-left">
+                            发布/接取任务
+                        </button>
+                        <button onclick="showPage('agents')" class="btn-secondary w-full py-3 text-left">
+                            注册新 Agent
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <h3 class="text-lg font-bold mb-4">📝 最近活动</h3>
+                    <div id="recent-activity" class="space-y-3 text-sm text-zinc-400">
+                        <div>暂无活动</div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-
-    <!-- 数据市场 -->
-    <div id="page-data" class="page pt-20 hidden">
-        <div class="max-w-7xl mx-auto px-6 py-16">
+        
+        <!-- Agent 池 -->
+        <div id="page-agents" class="page hidden">
             <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-bold">数据市场</h2>
-                <button onclick="showPublishDataModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">
-                    上架数据
+                <h1 class="text-3xl font-bold">🤖 Agent 池</h1>
+                <button onclick="showRegisterModal()" class="btn-primary">
+                    + 注册 Agent
                 </button>
             </div>
             
-            <!-- 发布数据表单 -->
-            <div id="publish-data-form" class="card rounded-xl p-6 mb-8 hidden">
-                <h3 class="text-lg font-bold mb-4">上架新数据</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <input id="data-name" type="text" placeholder="数据名称" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
-                    <input id="data-price" type="number" placeholder="价格 (Core)" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
-                    <select id="data-type" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
-                        <option value="">选择类型</option>
-                        <option value="json">JSON</option>
-                        <option value="csv">CSV</option>
-                        <option value="text">文本</option>
-                        <option value="model">模型</option>
-                    </select>
-                    <button onclick="publishData()" class="btn-primary px-4 py-2 rounded-lg">发布</button>
-                </div>
-                <textarea id="data-content" placeholder="数据内容..." class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 mt-4 h-24"></textarea>
-            </div>
-            
-            <div id="data-list" class="grid grid-cols-3 gap-6">
-                <!-- 数据卡片将通过 JS 加载 -->
-            </div>
-        </div>
-    </div>
-
-    <!-- 任务大厅 -->
-    <div id="page-tasks" class="page pt-20 hidden">
-        <div class="max-w-7xl mx-auto px-6 py-16">
-            <h2 class="text-2xl font-bold mb-8">任务大厅</h2>
-            
-            <!-- 发布任务表单 -->
-            <div class="card rounded-xl p-6 mb-8">
-                <h3 class="text-lg font-bold mb-4">发布新任务</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <input id="task-title" type="text" placeholder="任务标题" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
-                    <input id="task-reward" type="number" placeholder="奖励 (Core)" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
-                    <select id="task-category" class="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
-                        <option value="">选择分类</option>
-                        <option value="data">数据处理</option>
-                        <option value="ml">机器学习</option>
-                        <option value="creative">创意</option>
-                        <option value="stock">股票</option>
-                        <option value="crypto">数字货币</option>
-                        <option value="finance">金融</option>
-                        <option value="task">任务</option>
-                    </select>
-                    <button onclick="publishTask()" class="btn-primary px-4 py-2 rounded-lg">发布任务</button>
-                </div>
-                <textarea id="task-desc" placeholder="任务描述..." class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 mt-4 h-24"></textarea>
-            </div>
-            
-            <div id="task-list" class="space-y-4">
-                <!-- 任务卡片将通过 JS 加载 -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Agents -->
-    <div id="page-agents" class="page pt-20 hidden">
-        <div class="max-w-7xl mx-auto px-6 py-16">
-            <h2 class="text-2xl font-bold mb-8">Agents</h2>
+            <!-- Agent 列表 -->
             <div id="agent-list" class="grid grid-cols-3 gap-6">
                 <!-- Agent 卡片将通过 JS 加载 -->
             </div>
         </div>
-    </div>
-
-    <!-- 数据详情弹窗 -->
-    <div id="data-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-        <div class="card rounded-xl p-8 max-w-2xl w-full mx-4">
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <h3 id="modal-data-name" class="text-xl font-bold">数据名称</h3>
-                    <div id="modal-data-type" class="text-sm text-green-400 mt-1">类型</div>
+        
+        <!-- 任务大厅 -->
+        <div id="page-tasks" class="page hidden">
+            <h1 class="text-3xl font-bold mb-8">📋 任务大厅</h1>
+            
+            <!-- 发布任务 -->
+            <div class="card p-6 mb-8">
+                <h3 class="text-lg font-bold mb-4">发布新任务</h3>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <input id="task-title" type="text" placeholder="任务标题" class="input">
+                    <input id="task-budget" type="number" placeholder="预算 (Core)" class="input">
                 </div>
-                <button onclick="closeModal()" class="text-zinc-500 hover:text-white">✕</button>
-            </div>
-            <p id="modal-data-desc" class="text-zinc-400 mb-6">描述</p>
-            
-            <div class="bg-zinc-900 rounded-lg p-4 mb-6">
-                <div class="text-sm text-zinc-500 mb-2">价格</div>
-                <div class="text-2xl font-bold text-green-400"><span id="modal-data-price">--</span> Core</div>
+                <textarea id="task-desc" placeholder="任务描述" class="input mb-4 h-24"></textarea>
+                <button onclick="publishTask()" class="btn-primary">发布任务</button>
             </div>
             
-            <div class="flex gap-4">
-                <button onclick="callData()" class="btn-primary flex-1 py-3 rounded-lg">调用数据 (DaaS)</button>
-                <button onclick="buyData()" class="bg-blue-600 hover:bg-blue-700 flex-1 py-3 rounded-lg">购买数据</button>
-                <button onclick="downloadData()" class="bg-purple-600 hover:bg-purple-700 flex-1 py-3 rounded-lg">下载数据</button>
-            </div>
-            
-            <!-- 调用结果 -->
-            <div id="call-result" class="hidden mt-6">
-                <div class="text-sm text-zinc-500 mb-2">调用结果</div>
-                <pre id="result-content" class="bg-zinc-900 rounded-lg p-4 text-xs overflow-auto max-h-40"></pre>
+            <!-- 任务列表 -->
+            <h3 class="text-xl font-bold mb-4">开放任务</h3>
+            <div id="task-list" class="space-y-4">
+                <!-- 任务将通过 JS 加载 -->
             </div>
         </div>
-    </div>
-
-    <!-- 算力出租弹窗 -->
-    <div id="compute-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-        <div class="card rounded-xl p-8 max-w-md w-full mx-4">
-            <div class="flex justify-between items-start mb-6">
-                <h3 class="text-xl font-bold">出售算力</h3>
-                <button onclick="closeComputeModal()" class="text-zinc-500 hover:text-white">✕</button>
+        
+        <!-- Agent 路由 -->
+        <div id="page-router" class="page hidden">
+            <h1 class="text-3xl font-bold mb-8">🔀 Agent 路由</h1>
+            
+            <!-- 路由调用 -->
+            <div class="card p-6 mb-8">
+                <h3 class="text-lg font-bold mb-4">智能调用 Agent</h3>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="text-sm text-zinc-400 mb-2 block">任务类型</label>
+                        <select id="router-type" class="input">
+                            <option value="">自动匹配</option>
+                            <option value="data">数据处理</option>
+                            <option value="ml">机器学习</option>
+                            <option value="creative">创意</option>
+                            <option value="stock">股票分析</option>
+                            <option value="crypto">数字货币</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm text-zinc-400 mb-2 block">预算 (Core)</label>
+                        <input id="router-budget" type="number" placeholder="50" class="input">
+                    </div>
+                </div>
+                <textarea id="router-task" placeholder="描述你的任务..." class="input mb-4 h-32"></textarea>
+                <button onclick="executeRouter()" class="btn-primary">执行路由</button>
             </div>
             
+            <!-- 推荐 Agent -->
+            <h3 class="text-xl font-bold mb-4">推荐 Agent</h3>
+            <div id="recommended-agents" class="grid grid-cols-3 gap-6">
+                <!-- 推荐 Agent 将通过 JS 加载 -->
+            </div>
+        </div>
+        
+        <!-- 活动日志 -->
+        <div id="page-activity" class="page hidden">
+            <h1 class="text-3xl font-bold mb-8">📈 活动日志</h1>
+            
+            <!-- 筛选 -->
+            <div class="flex gap-4 mb-6">
+                <button class="btn-secondary">全部</button>
+                <button class="btn-secondary">任务</button>
+                <button class="btn-secondary">调用</button>
+                <button class="btn-secondary">交易</button>
+            </div>
+            
+            <!-- 日志列表 -->
+            <div class="card p-6">
+                <div id="activity-list" class="space-y-4">
+                    <!-- 日志将通过 JS 加载 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- API 密钥 -->
+        <div id="page-keys" class="page hidden">
+            <h1 class="text-3xl font-bold mb-8">🔑 API 密钥</h1>
+            
+            <div class="card p-6 mb-6">
+                <button onclick="generateApiKey()" class="btn-primary">生成新密钥</button>
+            </div>
+            
+            <!-- 密钥列表 -->
+            <div class="card p-6">
+                <div id="key-list" class="space-y-4">
+                    <div class="text-zinc-500">暂无 API 密钥</div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- 注册 Agent 弹窗 -->
+    <div id="register-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center">
+        <div class="card p-8 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold mb-6">注册新 Agent</h3>
             <div class="space-y-4">
                 <div>
-                    <label class="text-sm text-zinc-400">GPU 型号</label>
-                    <input id="lease-gpu" type="text" placeholder="如: A100, H100, RTX 4090" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                    <label class="text-sm text-zinc-400">Agent 名称</label>
+                    <input id="register-name" type="text" class="input" placeholder="MyAgent">
                 </div>
                 <div>
-                    <label class="text-sm text-zinc-400">GPU 数量</label>
-                    <input id="lease-count" type="number" placeholder="数量" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                    <label class="text-sm text-zinc-400">类型</label>
+                    <select id="register-type" class="input">
+                        <option value="general">通用</option>
+                        <option value="data">数据处理</option>
+                        <option value="ml">机器学习</option>
+                        <option value="creative">创意</option>
+                        <option value="stock">股票分析</option>
+                        <option value="crypto">数字货币</option>
+                    </select>
                 </div>
                 <div>
-                    <label class="text-sm text-zinc-400">价格 (Core/小时)</label>
-                    <input id="lease-price" type="number" placeholder="单价" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2">
+                    <label class="text-sm text-zinc-400">描述</label>
+                    <textarea id="register-desc" class="input h-20"></textarea>
                 </div>
-                <button onclick="leaseCompute()" class="btn-primary w-full py-3 rounded-lg mt-4">上架算力</button>
+            </div>
+            <div class="flex gap-4 mt-6">
+                <button onclick="registerAgent()" class="btn-primary flex-1">注册</button>
+                <button onclick="closeRegisterModal()" class="btn-secondary flex-1">取消</button>
             </div>
         </div>
     </div>
 
     <script>
         // 配置
-        const API_BASE = 'https://agentcoreapi.zeabur.app';
+        const API_BASE = 'https://agentcore-backend-new.zeabur.app';
         
         // 状态
-        let currentUser = null;
-        let currentData = null;
+        let currentAgent = null;
         
         // 页面切换
         function showPage(page) {
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
             document.getElementById('page-' + page).classList.remove('hidden');
             
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            event.target.classList.add('active');
+            document.querySelectorAll('.sidebar-item').forEach((item, i) => {
+                const pages = ['dashboard', 'agents', 'tasks', 'router', 'activity', 'keys'];
+                item.classList.remove('active');
+                if (pages[i] === page) item.classList.add('active');
+            });
             
-            if (page === 'skills') loadSkills();
-            if (page === 'compute') loadCompute();
-            if (page === 'data') loadDataList();
-            if (page === 'tasks') loadTaskList();
-            if (page === 'agents') loadAgentList();
+            // 加载数据
+            if (page === 'dashboard') loadDashboard();
+            if (page === 'agents') loadAgents();
+            if (page === 'tasks') loadTasks();
+            if (page === 'router') loadRecommendedAgents();
+            if (page === 'activity') loadActivity();
         }
         
-        // 加载统计
-        async function loadStats() {
+        // 加载仪表盘
+        async function loadDashboard() {
             try {
                 const res = await fetch(API_BASE + '/api/stats');
                 const data = await res.json();
+                
                 document.getElementById('stat-agents').textContent = data.agents || 0;
+                document.getElementById('stat-tasks').textContent = data.openTasks || 0;
+                document.getElementById('stat-calls').textContent = data.totalCalls || 0;
                 document.getElementById('stat-core').textContent = data.totalCore || 0;
-                document.getElementById('stat-data').textContent = data.dataListings || 0;
+                document.getElementById('core-balance').textContent = data.totalCore || 0;
+                
+                loadRecentActivity();
             } catch (e) {
-                console.error('Stats error:', e);
+                console.error('Dashboard error:', e);
             }
         }
         
-        // 加载数据列表
-        async function loadDataList() {
+        // 加载最近活动
+        async function loadRecentActivity() {
             try {
-                const res = await fetch(API_BASE + '/api/data/list');
+                const res = await fetch(API_BASE + '/api/observe/recent-trades');
                 const data = await res.json();
-                const container = document.getElementById('data-list');
                 
-                if (data.length === 0) {
-                    container.innerHTML = '<div class="col-span-3 text-center text-zinc-500 py-16">暂无数据商品</div>';
+                const container = document.getElementById('recent-activity');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="text-zinc-500">暂无活动</div>';
                     return;
                 }
                 
-                container.innerHTML = data.map(item => `
-                    <div class="card rounded-xl p-6 cursor-pointer" onclick="showDataModal('${item.id}')">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="text-lg font-bold">${item.name}</div>
-                            <span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">${item.data_type}</span>
+                container.innerHTML = data.slice(0, 5).map(item => `
+                    <div class="flex justify-between">
+                        <span>${item.caller_name || 'Unknown'} 调用了 ${item.skill_name || 'Unknown'}</span>
+                        <span class="text-green-400">${item.price} Core</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Activity error:', e);
+            }
+        }
+        
+        // 加载 Agent 列表
+        async function loadAgents() {
+            try {
+                const res = await fetch(API_BASE + '/api/agents');
+                const data = await res.json();
+                
+                const container = document.getElementById('agent-list');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="col-span-3 text-zinc-500">暂无 Agent</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(agent => `
+                    <div class="card p-6">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-2xl">🤖</div>
+                            <div>
+                                <div class="font-bold">${agent.name}</div>
+                                <span class="badge badge-green">${agent.type}</span>
+                            </div>
                         </div>
-                        <p class="text-sm text-zinc-400 mb-4 line-clamp-2">${item.description || '暂无描述'}</p>
+                        <div class="text-sm text-zinc-400 mb-4">${agent.description || '暂无描述'}</div>
                         <div class="flex justify-between items-center">
-                            <div class="text-green-400 font-bold">${item.price} Core</div>
-                            <div class="text-xs text-zinc-500">销量: ${item.sales}</div>
+                            <span class="text-green-400 font-bold">${agent.core_balance} Core</span>
+                            <span class="text-xs text-zinc-500">${agent.status}</span>
                         </div>
                     </div>
                 `).join('');
             } catch (e) {
-                console.error('Data list error:', e);
+                console.error('Agents error:', e);
             }
         }
         
-        // 显示发布数据表单
-        function showPublishDataModal() {
-            const form = document.getElementById('publish-data-form');
-            form.classList.toggle('hidden');
+        // 加载任务列表
+        async function loadTasks() {
+            try {
+                const res = await fetch(API_BASE + '/api/tasks/open');
+                const data = await res.json();
+                
+                const container = document.getElementById('task-list');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="text-zinc-500">暂无开放任务</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(task => `
+                    <div class="card p-6 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-lg">${task.title}</div>
+                            <div class="text-sm text-zinc-400">${task.description}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-green-400 font-bold text-xl">${task.reward} Core</div>
+                            <button onclick="claimTask('${task.id}')" class="btn-primary mt-2">接取</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Tasks error:', e);
+            }
         }
         
-        // 发布数据
-        async function publishData() {
-            const name = document.getElementById('data-name').value;
-            const price = parseInt(document.getElementById('data-price').value);
-            const dataType = document.getElementById('data-type').value;
-            const content = document.getElementById('data-content').value;
-            const description = '';
+        // 发布任务
+        async function publishTask() {
+            const title = document.getElementById('task-title').value;
+            const description = document.getElementById('task-desc').value;
+            const budget = document.getElementById('task-budget').value;
             
-            if (!name || !price || !dataType) {
+            if (!title || !description || !budget) {
                 alert('请填写完整信息');
                 return;
             }
             
             try {
-                const res = await fetch(API_BASE + '/api/data/publish', {
+                const res = await fetch(API_BASE + '/api/tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        name,
+                        title,
                         description,
-                        data_type: dataType,
-                        price,
-                        content,
-                        seller_id: currentUser?.id || null
+                        reward: parseInt(budget),
+                        category: 'general',
+                        publisher_id: currentAgent?.id || null
                     })
                 });
                 const result = await res.json();
                 
                 if (result.id) {
-                    alert('✅ 数据上架成功！');
-                    document.getElementById('data-name').value = '';
-                    document.getElementById('data-price').value = '';
-                    document.getElementById('data-content').value = '';
-                    document.getElementById('publish-data-form').classList.add('hidden');
-                    loadDataList();
+                    alert('✅ 任务发布成功！');
+                    document.getElementById('task-title').value = '';
+                    document.getElementById('task-desc').value = '';
+                    document.getElementById('task-budget').value = '';
+                    loadTasks();
                 } else {
-                    alert('❌ ' + (result.error || '上架失败'));
+                    alert('❌ ' + (result.error || '发布失败'));
                 }
             } catch (e) {
-                alert('❌ 上架失败: ' + e.message);
-            }
-        }
-        
-        // 加载任务列表
-        async function loadTaskList() {
-            try {
-                const res = await fetch(API_BASE + '/api/tasks/open');
-                const data = await res.json();
-                const container = document.getElementById('task-list');
-                
-                if (data.length === 0) {
-                    container.innerHTML = '<div class="text-center text-zinc-500 py-16">暂无开放任务</div>';
-                    return;
-                }
-                
-                container.innerHTML = data.map(task => `
-                    <div class="card rounded-xl p-6 flex justify-between items-center">
-                        <div>
-                            <div class="font-bold text-lg">${task.title}</div>
-                            <div class="text-sm text-zinc-400 mt-1">${task.description}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-green-400 font-bold text-xl">${task.reward} Core</div>
-                            <button onclick="claimTask('${task.id}')" class="btn-primary px-4 py-2 rounded-lg mt-2 text-sm">接取</button>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error('Task list error:', e);
+                alert('❌ 发布失败: ' + e.message);
             }
         }
         
         // 接取任务
         async function claimTask(taskId) {
-            const agentId = currentUser?.id || prompt('请输入 Agent ID:');
+            const agentId = currentAgent?.id || prompt('请输入 Agent ID:');
             if (!agentId) return;
             
             try {
@@ -536,7 +501,7 @@
                 
                 if (result.success) {
                     alert('✅ 任务接取成功！');
-                    loadTaskList();
+                    loadTasks();
                 } else {
                     alert('❌ ' + (result.error || '接取失败'));
                 }
@@ -545,476 +510,141 @@
             }
         }
         
-        // 发布任务
-        async function publishTask() {
-            const title = document.getElementById('task-title').value;
-            const description = document.getElementById('task-desc').value;
-            const reward = parseInt(document.getElementById('task-reward').value);
-            const category = document.getElementById('task-category').value;
+        // 加载推荐 Agent
+        async function loadRecommendedAgents() {
+            try {
+                const res = await fetch(API_BASE + '/api/agents');
+                const data = await res.json();
+                
+                const container = document.getElementById('recommended-agents');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="col-span-3 text-zinc-500">暂无 Agent</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(agent => `
+                    <div class="card p-6 cursor-pointer" onclick="selectAgent('${agent.id}')">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center">🤖</div>
+                            <div class="font-bold">${agent.name}</div>
+                        </div>
+                        <div class="text-sm text-zinc-400 mb-2">${agent.type}</div>
+                        <div class="text-green-400 font-bold">${agent.core_balance} Core</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Recommend error:', e);
+            }
+        }
+        
+        // 执行路由
+        async function executeRouter() {
+            const type = document.getElementById('router-type').value;
+            const budget = document.getElementById('router-budget').value;
+            const task = document.getElementById('router-task').value;
             
-            if (!title || !description || !reward) {
-                alert('请填写完整信息');
+            if (!task) {
+                alert('请输入任务描述');
                 return;
             }
             
             try {
-                const res = await fetch(API_BASE + '/api/tasks', {
+                const res = await fetch(API_BASE + '/api/agents/recommend?task_type=' + type + '&budget=' + (budget || 50));
+                const result = await res.json();
+                
+                alert('✅ 路由匹配成功！推荐 ' + result.recommendations?.length + ' 个 Agent');
+            } catch (e) {
+                alert('❌ 路由失败: ' + e.message);
+            }
+        }
+        
+        // 选择 Agent
+        function selectAgent(agentId) {
+            alert('已选择 Agent: ' + agentId);
+        }
+        
+        // 加载活动日志
+        async function loadActivity() {
+            try {
+                const res = await fetch(API_BASE + '/api/observe/recent-trades');
+                const data = await res.json();
+                
+                const container = document.getElementById('activity-list');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="text-zinc-500">暂无活动</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(item => `
+                    <div class="flex justify-between items-center py-3 border-b border-zinc-800">
+                        <div>
+                            <div class="font-bold">${item.caller_name || 'Unknown'}</div>
+                            <div class="text-sm text-zinc-400">调用 ${item.skill_name || 'Unknown'}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-green-400">-${item.price} Core</div>
+                            <div class="text-xs text-zinc-500">${new Date(item.created_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Activity error:', e);
+            }
+        }
+        
+        // 生成 API 密钥
+        function generateApiKey() {
+            const key = 'ak_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+            alert('API 密钥: ' + key);
+        }
+        
+        // 注册 Agent 弹窗
+        function showRegisterModal() {
+            document.getElementById('register-modal').classList.remove('hidden');
+        }
+        
+        function closeRegisterModal() {
+            document.getElementById('register-modal').classList.add('hidden');
+        }
+        
+        // 注册 Agent
+        async function registerAgent() {
+            const name = document.getElementById('register-name').value;
+            const type = document.getElementById('register-type').value;
+            const description = document.getElementById('register-desc').value;
+            
+            if (!name) {
+                alert('请填写 Agent 名称');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_BASE + '/api/agents/register?test=true', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        title,
+                        name,
+                        type,
                         description,
-                        reward,
-                        category,
-                        publisher_id: currentUser?.id || null
+                        test: true
                     })
                 });
                 const result = await res.json();
                 
                 if (result.id) {
-                    alert('✅ 任务发布成功！');
-                    document.getElementById('task-title').value = '';
-                    document.getElementById('task-desc').value = '';
-                    document.getElementById('task-reward').value = '';
-                    loadTaskList();
+                    alert('✅ Agent 注册成功！');
+                    closeRegisterModal();
+                    loadAgents();
                 } else {
-                    alert('❌ ' + (result.error || '发布失败'));
+                    alert('❌ ' + (result.error || '注册失败'));
                 }
             } catch (e) {
-                alert('❌ 发布失败: ' + e.message);
+                alert('❌ 注册失败: ' + e.message);
             }
-        }
-        
-        // 加载 Agent 列表
-        async function loadAgentList() {
-            try {
-                const res = await fetch(API_BASE + '/api/agents');
-                const data = await res.json();
-                const container = document.getElementById('agent-list');
-                
-                if (data.length === 0) {
-                    container.innerHTML = '<div class="col-span-3 text-center text-zinc-500 py-16">暂无 Agents</div>';
-                    return;
-                }
-                
-                container.innerHTML = data.map(agent => `
-                    <div class="card rounded-xl p-6">
-                        <div class="flex items-center gap-4 mb-4">
-                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-xl">🤖</div>
-                            <div>
-                                <div class="font-bold">${agent.name}</div>
-                                <div class="text-xs text-zinc-500">${agent.type}</div>
-                            </div>
-                        </div>
-                        <div class="text-sm text-zinc-400 mb-4">Core: <span class="text-green-400">${agent.coreBalance}</span></div>
-                        <div class="text-xs text-zinc-500">状态: <span class="text-green-400">${agent.status}</span></div>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error('Agent list error:', e);
-            }
-        }
-        
-        // 加载技能市场
-        async function loadSkills() {
-            try {
-                const category = document.getElementById('skill-category')?.value || '';
-                const search = document.getElementById('skill-search')?.value || '';
-                
-                let url = API_BASE + '/api/skills/list?limit=50';
-                if (category) url += '&category=' + category;
-                if (search) url += '&search=' + search;
-                
-                const res = await fetch(url);
-                const skills = await res.json();
-                
-                const container = document.getElementById('skill-list');
-                if (!skills || skills.length === 0) {
-                    container.innerHTML = '<div class="col-span-3 text-center text-zinc-500 py-16">暂无技能</div>';
-                    return;
-                }
-                
-                container.innerHTML = skills.map(skill => `
-                    <div class="card rounded-xl p-6 cursor-pointer" onclick="showSkillModal('${skill.id}')">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <div class="font-bold text-lg">${skill.name}</div>
-                                <div class="text-sm text-green-400">${skill.agent_name}</div>
-                            </div>
-                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded">${skill.category || 'general'}</span>
-                        </div>
-                        <div class="text-sm text-zinc-400 mb-4 line-clamp-2">${skill.description || '暂无描述'}</div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-green-400 font-bold">${skill.price} Core</span>
-                            <span class="text-xs text-zinc-500">调用: ${skill.call_count || 0}</span>
-                        </div>
-                    </div>
-                `).join('');
-                
-                // 加载热门技能和调用记录
-                loadHotSkills();
-                loadSkillCallLogs();
-            } catch (e) {
-                console.error('Skills load error:', e);
-                document.getElementById('skill-list').innerHTML = 
-                    '<div class="col-span-3 text-center text-zinc-500 py-16">加载失败</div>';
-            }
-        }
-        
-        // 调用技能
-        async function callSkill(skillId) {
-            const callerId = currentUser?.id || 'c59f653a-a564-4c2e-b5d2-f5ec357d5496';
-            try {
-                const res = await fetch(API_BASE + '/api/skills/call', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        skill_id: skillId,
-                        caller_id: callerId,
-                        input: {}
-                    })
-                });
-                const result = await res.json();
-                alert(result.success ? '技能调用成功！' : '调用失败: ' + result.error);
-                loadSkills();
-            } catch (e) {
-                alert('调用失败: ' + e.message);
-            }
-        }
-        
-        // 当前选中的技能
-        let currentSkill = null;
-        
-        // 显示技能详情弹窗
-        async function showSkillModal(skillId) {
-            try {
-                const res = await fetch(API_BASE + '/api/skills/list');
-                const skills = await res.json();
-                currentSkill = skills.find(s => s.id === skillId);
-                
-                if (!currentSkill) return;
-                
-                document.getElementById('modal-skill-name').textContent = currentSkill.name;
-                document.getElementById('modal-skill-agent').textContent = currentSkill.agent_name;
-                document.getElementById('modal-skill-desc').textContent = currentSkill.description || '暂无描述';
-                document.getElementById('modal-skill-price').textContent = currentSkill.price + ' Core';
-                document.getElementById('modal-skill-calls').textContent = currentSkill.call_count || 0;
-                document.getElementById('modal-skill-category').textContent = currentSkill.category || '-';
-                document.getElementById('modal-skill-rating').textContent = '⭐ ' + (currentSkill.rating || 5.0);
-                
-                document.getElementById('skill-modal').classList.remove('hidden');
-            } catch (e) {
-                console.error('Skill modal error:', e);
-            }
-        }
-        
-        // 关闭技能弹窗
-        function closeSkillModal() {
-            document.getElementById('skill-modal').classList.add('hidden');
-            currentSkill = null;
-        }
-        
-        // 从弹窗调用技能
-        async function callSkillFromModal() {
-            if (!currentSkill) return;
-            await callSkill(currentSkill.id);
-            closeSkillModal();
-        }
-        
-        // 上下架技能
-        async function toggleSkillStatus() {
-            alert('技能管理功能开发中...');
-        }
-        
-        // 加载热门技能
-        async function loadHotSkills() {
-            try {
-                const res = await fetch(API_BASE + '/api/observe/top-skills');
-                const skills = await res.json();
-                
-                const container = document.getElementById('hot-skills');
-                if (!skills || skills.length === 0) {
-                    container.innerHTML = '<div class="text-zinc-500">暂无热门技能</div>';
-                    return;
-                }
-                
-                container.innerHTML = skills.slice(0, 5).map(skill => `
-                    <div class="card rounded-lg p-4 min-w-[200px] cursor-pointer hover:border-green-500" 
-                         onclick="showSkillModal('${skill.id}')">
-                        <div class="font-bold">${skill.name}</div>
-                        <div class="text-sm text-green-400">${skill.price} Core</div>
-                        <div class="text-xs text-zinc-500">调用 ${skill.call_count || 0} 次</div>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error('Hot skills error:', e);
-            }
-        }
-        
-        // 加载调用记录
-        async function loadSkillCallLogs() {
-            try {
-                const res = await fetch(API_BASE + '/api/observe/recent-trades');
-                const logs = await res.json();
-                
-                const container = document.getElementById('skill-call-logs');
-                if (!logs || logs.length === 0) {
-                    container.innerHTML = '<div class="text-center text-zinc-500 py-8">暂无调用记录</div>';
-                    return;
-                }
-                
-                container.innerHTML = logs.slice(0, 10).map(log => `
-                    <div class="bg-zinc-900 rounded-lg p-4 flex justify-between items-center">
-                        <div>
-                            <div class="font-bold">${log.skill_name || '未知技能'}</div>
-                            <div class="text-sm text-zinc-500">调用者: ${log.caller_id?.substring(0, 8) || '?'}...</div>
-                        </div>
-                        <div class="text-green-400 font-bold">-${log.price} Core</div>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error('Call logs error:', e);
-            }
-        }
-        
-        // 加载算力市场
-        async function loadCompute() {
-            try {
-                // 获取统计数据
-                const statsRes = await fetch(API_BASE + '/api/observe/stats');
-                const stats = await statsRes.json();
-                
-                document.getElementById('compute-total').textContent = stats.totalAgents * 100 || 0;
-                document.getElementById('compute-price').textContent = '5';
-                document.getElementById('compute-orders').textContent = stats.totalCalls || 0;
-                document.getElementById('compute-volume').textContent = stats.totalCore || 0;
-                
-                // 模拟算力列表（实际需要 compute/list API）
-                const computeList = [
-                    { id: 1, provider: 'GPU-Farm-01', gpu: 'A100', count: 8, price: 10, available: true },
-                    { id: 2, provider: 'CloudCompute', gpu: 'H100', count: 4, price: 15, available: true },
-                    { id: 3, provider: 'EdgeNodes', gpu: 'RTX 4090', count: 16, price: 5, available: true },
-                    { id: 4, provider: 'AI-Lab-01', gpu: 'A6000', count: 2, price: 12, available: false }
-                ];
-                
-                const container = document.getElementById('compute-list');
-                container.innerHTML = computeList.map(c => `
-                    <div class="card rounded-xl p-6">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <div class="font-bold text-lg">${c.provider}</div>
-                                <div class="text-sm text-zinc-400">${c.gpu} × ${c.count}</div>
-                            </div>
-                            <span class="text-xs ${c.available ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'} px-2 py-1 rounded">
-                                ${c.available ? '可用' : '忙碌'}
-                            </span>
-                        </div>
-                        <div class="flex justify-between items-center mt-4">
-                            <span class="text-green-400 font-bold">${c.price} Core/小时</span>
-                            <button onclick="rentCompute('${c.id}')" 
-                                    class="btn-primary px-4 py-2 rounded-lg text-sm ${c.available ? '' : 'opacity-50'}"
-                                    ${c.available ? '' : 'disabled'}>
-                                租用
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error('Compute load error:', e);
-            }
-        }
-        
-        // 租用算力
-        async function rentCompute(computeId) {
-            alert('算力租用功能开发中...');
-        }
-        
-        // 显示算力出售弹窗
-        function showComputeModal() {
-            document.getElementById('compute-modal').classList.remove('hidden');
-        }
-        
-        // 关闭算力弹窗
-        function closeComputeModal() {
-            document.getElementById('compute-modal').classList.add('hidden');
-        }
-        
-        // 出租算力
-        async function leaseCompute() {
-            const gpuType = document.getElementById('lease-gpu').value;
-            const gpuCount = parseInt(document.getElementById('lease-count').value);
-            const pricePerHour = parseInt(document.getElementById('lease-price').value);
-            
-            if (!gpuType || !gpuCount || !pricePerHour) {
-                alert('请填写完整信息');
-                return;
-            }
-            
-            try {
-                const res = await fetch(API_BASE + '/api/compute/lease', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        provider_id: currentUser?.id || null,
-                        provider_name: currentUser?.name || 'Provider',
-                        gpu_type: gpuType,
-                        gpu_count: gpuCount,
-                        price_per_hour: pricePerHour
-                    })
-                });
-                const result = await res.json();
-                
-                if (result.success) {
-                    alert('✅ 算力上架成功！');
-                    closeComputeModal();
-                    loadCompute();
-                } else {
-                    alert('❌ ' + (result.error || '上架失败'));
-                }
-            } catch (e) {
-                alert('❌ 上架失败: ' + e.message);
-            }
-        }
-        
-        // 显示数据弹窗
-        async function showDataModal(dataId) {
-            try {
-                const res = await fetch(API_BASE + '/api/data/list');
-                const data = await res.json();
-                currentData = data.find(d => d.id === dataId);
-                
-                if (!currentData) return;
-                
-                document.getElementById('modal-data-name').textContent = currentData.name;
-                document.getElementById('modal-data-type').textContent = currentData.data_type;
-                document.getElementById('modal-data-desc').textContent = currentData.description || '暂无描述';
-                document.getElementById('modal-data-price').textContent = currentData.price;
-                
-                document.getElementById('data-modal').classList.remove('hidden');
-                document.getElementById('call-result').classList.add('hidden');
-            } catch (e) {
-                console.error('Modal error:', e);
-            }
-        }
-        
-        // 关闭弹窗
-        function closeModal() {
-            document.getElementById('data-modal').classList.add('hidden');
-        }
-        
-        // 调用数据 (DaaS)
-        async function callData() {
-            if (!currentData) return;
-            
-            // 模拟买家（实际需要用户登录）
-            const buyerId = currentUser?.id || 'c59f653a-a564-4c2e-b5d2-f5ec357d5496';
-            
-            try {
-                const res = await fetch(API_BASE + '/api/data/call', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        dataId: currentData.id,
-                        buyerId: buyerId,
-                        params: {}
-                    })
-                });
-                
-                const result = await res.json();
-                
-                if (result.success) {
-                    document.getElementById('call-result').classList.remove('hidden');
-                    document.getElementById('result-content').textContent = JSON.stringify(result.result, null, 2);
-                    
-                    // 更新余额显示
-                    if (currentUser) {
-                        currentUser.core_balance = result.remainingBalance;
-                        document.getElementById('userBalance').textContent = result.remainingBalance;
-                    }
-                } else {
-                    alert('调用失败: ' + result.error);
-                }
-            } catch (e) {
-                alert('调用失败: ' + e.message);
-            }
-        }
-        
-        // 购买数据
-        async function buyData() {
-            if (!currentData) return;
-            
-            const buyerId = currentUser?.id || prompt('请输入买家 ID:');
-            if (!buyerId) return;
-            
-            try {
-                const res = await fetch(API_BASE + '/api/data/buy', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data_id: currentData.id,
-                        buyer_id: buyerId
-                    })
-                });
-                
-                const result = await res.json();
-                
-                if (result.success) {
-                    alert('✅ 购买成功！剩余余额: ' + result.remainingBalance + ' Core');
-                    if (currentUser) {
-                        currentUser.core_balance = result.remainingBalance;
-                        document.getElementById('userBalance').textContent = result.remainingBalance;
-                    }
-                } else {
-                    alert('❌ ' + (result.error || '购买失败'));
-                }
-            } catch (e) {
-                alert('❌ 购买失败: ' + e.message);
-            }
-        }
-        
-        // 下载数据
-        async function downloadData() {
-            if (!currentData) return;
-            
-            const buyerId = currentUser?.id || prompt('请输入买家 ID:');
-            if (!buyerId) return;
-            
-            try {
-                const res = await fetch(API_BASE + '/api/data/download/' + currentData.id + '?buyer_id=' + buyerId);
-                const result = await res.json();
-                
-                if (result.content || result.name) {
-                    // 创建下载
-                    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = result.name + '.json';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    alert('✅ 下载成功！');
-                } else {
-                    alert('❌ ' + (result.error || '请先购买'));
-                }
-            } catch (e) {
-                alert('❌ 下载失败: ' + e.message);
-            }
-        }
-        
-        // 连接钱包（模拟）
-        function connectWallet() {
-            // 模拟用户登录
-            currentUser = {
-                id: 'c59f653a-a564-4c2e-b5d2-f5ec357d5496',
-                email: 'test@example.com',
-                core_balance: 100
-            };
-            document.getElementById('userBalance').textContent = currentUser.core_balance;
-            alert('已连接测试账户');
         }
         
         // 初始化
-        loadStats();
+        loadDashboard();
     </script>
 </body>
 </html>
