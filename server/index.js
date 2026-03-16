@@ -1624,6 +1624,114 @@ app.post('/api/agents/route', async (req, res) => {
   }
 });
 
+// ===== 多Agent协作执行 =====
+app.post('/api/agents/collaborate', async (req, res) => {
+  try {
+    const { main_agent_id, task, subtasks } = req.body;
+    
+    if (!subtasks || subtasks.length === 0) {
+      return res.status(400).json({ error: 'No subtasks provided' });
+    }
+    
+    // 为每个子任务匹配最佳 Agent
+    const results = [];
+    const allAgents = await query("SELECT * FROM agents WHERE status = 'active'");
+    
+    for (const subtask of subtasks) {
+      // 根据类型匹配
+      let matchedAgents = allAgents.filter(a => a.type === subtask.required_agent_type);
+      if (matchedAgents.length === 0) {
+        matchedAgents = allAgents;
+      }
+      // 按余额排序
+      matchedAgents.sort((a, b) => (b.core_balance || 0) - (a.core_balance || 0));
+      
+      const assigned = matchedAgents[0];
+      
+      if (assigned) {
+        results.push({
+          subtask: subtask.title,
+          agent_id: assigned.id,
+          agent_name: assigned.name,
+          agent_type: assigned.type,
+          estimated_reward: subtask.estimated_reward,
+          status: 'assigned'
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      main_agent_id,
+      task,
+      subtask_count: subtasks.length,
+      assigned_agents: results,
+      message: `已为 ${subtasks.length} 个子任务分配 Agent`
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Agent 调用其他 Agent 的技能 =====
+app.post('/api/agents/call-skill', async (req, res) => {
+  try {
+    const { caller_id, skill_id, input } = req.body;
+    
+    // 获取技能信息
+    const [skills] = await query('SELECT * FROM skills WHERE id = ?', [skill_id]);
+    if (!skills.length) {
+      return res.status(404).json({ error: 'Skill not found' });
+    }
+    
+    const skill = skills[0];
+    
+    // 获取调用者
+    const [callers] = await query('SELECT * FROM agents WHERE id = ?', [caller_id]);
+    if (!callers.length) {
+      return res.status(404).json({ error: 'Caller agent not found' });
+    }
+    
+    const caller = callers[0];
+    
+    // 检查余额
+    if (caller.core_balance < skill.price) {
+      return res.status(400).json({ error: 'Insufficient balance' });
+    }
+    
+    // 扣除费用
+    await query('UPDATE agents SET core_balance = core_balance - ? WHERE id = ?', [skill.price, caller_id]);
+    
+    // 给技能拥有者加余额
+    await query('UPDATE agents SET core_balance = core_balance + ? WHERE id = ?', [skill.price, skill.agent_id]);
+    
+    // 记录调用
+    const logId = uuidv4();
+    await query(
+      'INSERT INTO skill_calls (id, skill_id, caller_id, input, price) VALUES (?, ?, ?, ?, ?)',
+      [logId, skill_id, caller_id, JSON.stringify(input), skill.price]
+    );
+    
+    // 更新调用次数
+    await query('UPDATE skills SET call_count = call_count + 1 WHERE id = ?', [skill_id]);
+    
+    res.json({
+      success: true,
+      skill_name: skill.name,
+      caller: caller.name,
+      cost: skill.price,
+      remaining_balance: caller.core_balance - skill.price,
+      result: {
+        message: `Skill ${skill.name} executed successfully`,
+        input,
+        output: 'Mock result - actual execution would happen here'
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`AgentCore API running on port ${PORT}`);
 });

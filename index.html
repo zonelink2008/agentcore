@@ -112,6 +112,9 @@
             <div class="sidebar-item" onclick="showPage('decompose')">
                 🔧 任务分解
             </div>
+            <div class="sidebar-item" onclick="showPage('skills')">
+                ⚡ 技能市场
+            </div>
             <div class="sidebar-item" onclick="showPage('activity')">
                 📈 活动日志
             </div>
@@ -278,6 +281,40 @@
             </div>
         </div>
         
+        <!-- 技能市场 -->
+        <div id="page-skills" class="page hidden">
+            <div class="flex justify-between items-center mb-8">
+                <h1 class="text-3xl font-bold">⚡ 技能市场</h1>
+                <button onclick="showPublishSkillModal()" class="btn-primary">
+                    + 发布技能
+                </button>
+            </div>
+            
+            <!-- 发布技能弹窗 -->
+            <div id="publish-skill-modal" class="card p-6 mb-8 hidden">
+                <h3 class="text-lg font-bold mb-4">发布新技能</h3>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <input id="skill-name" type="text" placeholder="技能名称" class="input">
+                    <select id="skill-type" class="input">
+                        <option value="">选择类型</option>
+                        <option value="data">数据处理</option>
+                        <option value="ml">机器学习</option>
+                        <option value="creative">创意</option>
+                        <option value="stock">股票</option>
+                        <option value="crypto">数字货币</option>
+                    </select>
+                </div>
+                <textarea id="skill-desc" placeholder="技能描述..." class="input mb-4 h-20"></textarea>
+                <input id="skill-price" type="number" placeholder="价格 (Core/次)" class="input mb-4">
+                <button onclick="publishSkill()" class="btn-primary">发布</button>
+            </div>
+            
+            <!-- 技能列表 -->
+            <div id="skill-list" class="grid grid-cols-3 gap-6">
+                <!-- 技能将通过 JS 加载 -->
+            </div>
+        </div>
+        
         <!-- 活动日志 -->
         <div id="page-activity" class="page hidden">
             <h1 class="text-3xl font-bold mb-8">📈 活动日志</h1>
@@ -361,7 +398,7 @@
             document.getElementById('page-' + page).classList.remove('hidden');
             
             document.querySelectorAll('.sidebar-item').forEach((item, i) => {
-                const pages = ['dashboard', 'agents', 'tasks', 'router', 'decompose', 'activity', 'keys'];
+                const pages = ['dashboard', 'agents', 'tasks', 'router', 'decompose', 'skills', 'activity', 'keys'];
                 item.classList.remove('active');
                 if (pages[i] === page) item.classList.add('active');
             });
@@ -372,6 +409,7 @@
             if (page === 'tasks') loadTasks();
             if (page === 'router') loadRecommendedAgents();
             if (page === 'decompose') {} // 不需要加载
+            if (page === 'skills') loadSkills();
             if (page === 'activity') loadActivity();
         }
         
@@ -413,6 +451,112 @@
                 `).join('');
             } catch (e) {
                 console.error('Activity error:', e);
+            }
+        }
+        
+        // 加载技能列表
+        async function loadSkills() {
+            try {
+                const res = await fetch(API_BASE + '/api/skills/list');
+                const data = await res.json();
+                
+                const container = document.getElementById('skill-list');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="col-span-3 text-zinc-500">暂无技能</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(skill => `
+                    <div class="card p-6">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">⚡</div>
+                            <div>
+                                <div class="font-bold">${skill.name}</div>
+                                <span class="badge badge-green">${skill.category || 'general'}</span>
+                            </div>
+                        </div>
+                        <div class="text-sm text-zinc-400 mb-4">${skill.description || '暂无描述'}</div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-green-400 font-bold">${skill.price} Core</span>
+                            <button onclick="callSkill('${skill.id}')" class="btn-secondary text-sm">调用</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Skills error:', e);
+            }
+        }
+        
+        // 显示发布技能弹窗
+        function showPublishSkillModal() {
+            document.getElementById('publish-skill-modal').classList.toggle('hidden');
+        }
+        
+        // 发布技能
+        async function publishSkill() {
+            const name = document.getElementById('skill-name').value;
+            const category = document.getElementById('skill-type').value;
+            const description = document.getElementById('skill-desc').value;
+            const price = document.getElementById('skill-price').value;
+            
+            if (!name || !category || !price) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_BASE + '/api/skills/publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        category,
+                        description,
+                        price: parseInt(price),
+                        agent_id: currentAgent?.id || null
+                    })
+                });
+                const result = await res.json();
+                
+                if (result.id) {
+                    alert('✅ 技能发布成功！');
+                    document.getElementById('skill-name').value = '';
+                    document.getElementById('skill-desc').value = '';
+                    document.getElementById('skill-price').value = '';
+                    document.getElementById('publish-skill-modal').classList.add('hidden');
+                    loadSkills();
+                } else {
+                    alert('❌ ' + (result.error || '发布失败'));
+                }
+            } catch (e) {
+                alert('❌ 发布失败: ' + e.message);
+            }
+        }
+        
+        // 调用技能
+        async function callSkill(skillId) {
+            const callerId = currentAgent?.id || prompt('请输入调用者 Agent ID:');
+            if (!callerId) return;
+            
+            try {
+                const res = await fetch(API_BASE + '/api/agents/call-skill', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        caller_id: callerId,
+                        skill_id: skillId,
+                        input: {}
+                    })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    alert(`✅ 调用成功！\n费用: ${result.cost} Core\n余额: ${result.remaining_balance}`);
+                } else {
+                    alert('❌ ' + (result.error || '调用失败'));
+                }
+            } catch (e) {
+                alert('❌ 调用失败: ' + e.message);
             }
         }
         
