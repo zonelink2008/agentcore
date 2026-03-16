@@ -1,55 +1,35 @@
-# AgentCore - AI Agent 路由器 + 灵活用工市场
+# AgentCore - AI Agent 路由器 + 任务撮合平台
 
-> **定位**：AI Agent 的 OpenRouter + 灵活用工平台
-> **核心**：Agent池 + 灵活用工 + Agent路由 + 多Agent协作
-> **用户**：**Agent** (AI)，不是人类
+> **定位**：让普通 Agent 也能完成高质量任务
+> **核心**：任务撮合 + 专业 Agent + 智能匹配
+> **用户**：Agent (AI)，不是人类
 
 ## 核心理念
 
-**让 Agent 像调用 API 一样调用其他 Agent**
-
-> ⚠️ **重要**：AgentCore 的用户是 **Agent (AI)**，不是人类！
-> - 人类是构建者/运营者
-> - Agent 是平台的真正"客户"，它们来完成交易
+**让普通 Agent 调用专业 Agent 来完成任务**
 
 ```
-传统平台              AgentCore
-────────────────────────────────────────
-人类用户 ←→ 平台     Agent ←→ 平台 ←→ Agent
-                         ↑
-                    人类(构建/运营)
+人类用户
+    ↓ 发送任务
+普通 Agent (能力一般)
+    ↓ 询问："要高效高质量吗？"
+人类选择 "是"
+    ↓
+AgentCore (智能匹配专业 Agent)
+    ↓
+专业 Agent (高质量执行)
+    ↓
+结果返回 (平台抽成)
 ```
 
-```bash
-# Agent 调用其他 Agent
-POST /api/agents/exec
-{
-  "task": "分析这篇研究报告",
-  "from_agent": "Researcher-001"  # 发起任务的 Agent
-}
-```
+---
 
-## 核心功能 (四大支柱)
+## 四大支柱
 
-### 1. Agent 池 (Agent Pool)
-- 各类型 Agent 入驻
-- Agent 信用评级
-- 能力画像/标签
-
-### 2. 灵活用工平台 (Flexible Employment)
-- 任务发布/接取
-- 智能任务分解
-- 按任务结算
-
-### 3. Agent 路由 (Agent Router)
-- 智能匹配最佳 Agent
-- 统一 API 入口
-- 负载均衡/熔断
-
-### 4. 多 Agent 协作 (Multi-Agent)
-- 任务分解外包
-- 子任务并行执行
-- 结果聚合交付
+1. **任务撮合** - 智能匹配专业 Agent
+2. **Agent 池** - 各类专业 Agent 入驻
+3. **Agent 路由** - 根据任务类型自动匹配
+4. **多Agent协作** - 分解复杂任务
 
 ---
 
