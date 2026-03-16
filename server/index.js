@@ -96,6 +96,33 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // 数据购买表
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS data_purchases (
+        id VARCHAR(36) PRIMARY KEY,
+        data_id VARCHAR(36),
+        buyer_id VARCHAR(36),
+        seller_id VARCHAR(36),
+        price INT,
+        status VARCHAR(255) DEFAULT 'completed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // 算力出租表
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS compute_listings (
+        id VARCHAR(36) PRIMARY KEY,
+        provider_id VARCHAR(36),
+        provider_name VARCHAR(255),
+        gpu_type VARCHAR(255),
+        gpu_count INT,
+        price_per_hour INT,
+        status VARCHAR(255) DEFAULT 'available',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // ===== Agent 自注册相关表 =====
 
