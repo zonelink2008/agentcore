@@ -66,6 +66,9 @@ async function initDB() {
         category VARCHAR(255),
         status VARCHAR(255) DEFAULT 'open',
         agent_id VARCHAR(36),
+        parent_task_id VARCHAR(36),
+        result TEXT,
+        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -1291,6 +1294,214 @@ app.get('/api/credit/leaderboard', async (req, res) => {
       avg_rating: a.avg_rating || 5.0,
       balance: a.core_balance
     })));
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== 任务分解与外包系统 =====
+
+// 任务分解 - 将复杂任务拆分为子任务
+app.post('/api/tasks/decompose', async (req, res) => {
+  try {
+    const { task_id, description, budget } = req.body;
+    
+    // 智能任务分解逻辑
+    const subtasks = [];
+    
+    // 简单规则分解（实际可以用 AI 分析）
+    if (description.includes('数据') || description.includes('分析')) {
+      subtasks.push({
+        type: 'data',
+        title: '数据收集与清洗',
+        description: '收集和处理原始数据',
+        estimated_reward: Math.floor(budget * 0.2),
+        required_agent_type: 'data'
+      });
+    }
+    
+    if (description.includes('模型') || description.includes('训练')) {
+      subtasks.push({
+        type: 'ml',
+        title: '模型训练',
+        description: '训练机器学习模型',
+        estimated_reward: Math.floor(budget * 0.4),
+        required_agent_type: 'ml'
+      });
+    }
+    
+    if (description.includes('图像') || description.includes('图片')) {
+      subtasks.push({
+        type: 'creative',
+        title: '图像处理',
+        description: '图像生成或处理',
+        estimated_reward: Math.floor(budget * 0.3),
+        required_agent_type: 'creative'
+      });
+    }
+    
+    if (description.includes('文本') || description.includes('写作')) {
+      subtasks.push({
+        type: 'task',
+        title: '文本内容生成',
+        description: '生成文本内容',
+        estimated_reward: Math.floor(budget * 0.2),
+        required_agent_type: 'task'
+      });
+    }
+    
+    // 如果没有匹配到任何类型，创建一个通用任务
+    if (subtasks.length === 0) {
+      subtasks.push({
+        type: 'task',
+        title: '任务执行',
+        description: description,
+        estimated_reward: budget,
+        required_agent_type: 'general'
+      });
+    }
+    
+    res.json({
+      success: true,
+      parent_task_id: task_id,
+      subtasks: subtasks,
+      total_budget: budget,
+      message: `已分解为 ${subtasks.length} 个子任务`
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 发布子任务到市场
+app.post('/api/tasks/decompose/publish', async (req, res) => {
+  try {
+    const { parent_task_id, subtasks, main_agent_id, total_budget } = req.body;
+    
+    const publishedSubtasks = [];
+    
+    for (const subtask of subtasks) {
+      const subtaskId = uuidv4();
+      await query(
+        'INSERT INTO tasks (id, publisher_id, title, description, reward, category, status, parent_task_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [subtaskId, main_agent_id, subtask.title, subtask.description, subtask.estimated_reward, subtask.type, 'open', parent_task_id]
+      );
+      
+      publishedSubtasks.push({
+        id: subtaskId,
+        ...subtask
+      });
+    }
+    
+    res.json({
+      success: true,
+      parent_task_id,
+      subtasks: publishedSubtasks,
+      message: `已发布 ${publishedSubtasks.length} 个子任务到市场`
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 获取子任务状态
+app.get('/api/tasks/:id/subtasks', async (req, res) => {
+  try {
+    const parentTaskId = req.params.id;
+    
+    const subtasks = await query(
+      'SELECT * FROM tasks WHERE parent_task_id = ? ORDER BY created_at',
+      [parentTaskId]
+    );
+    
+    const completed = subtasks.filter(t => t.status === 'completed').length;
+    const total = subtasks.length;
+    
+    res.json({
+      parent_task_id: parentTaskId,
+      subtasks: subtasks,
+      progress: {
+        completed,
+        total,
+        percentage: total > 0 ? Math.floor((completed / total) * 100) : 0
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 聚合子任务结果
+app.post('/api/tasks/:id/aggregate', async (req, res) => {
+  try {
+    const parentTaskId = req.params.id;
+    const { main_agent_id } = req.body;
+    
+    // 获取所有已完成子任务
+    const subtasks = await query(
+      "SELECT * FROM tasks WHERE parent_task_id = ? AND status = 'completed'",
+      [parentTaskId]
+    );
+    
+    if (subtasks.length === 0) {
+      return res.status(400).json({ error: 'No completed subtasks to aggregate' });
+    }
+    
+    // 聚合结果
+    const results = subtasks.map(t => ({
+      title: t.title,
+      description: t.description,
+      result: t.result || 'No result',
+      completed_at: t.completed_at
+    }));
+    
+    // 计算总成本
+    const totalCost = subtasks.reduce((sum, t) => sum + t.reward, 0);
+    
+    res.json({
+      success: true,
+      parent_task_id: parentTaskId,
+      subtask_count: subtasks.length,
+      total_cost: totalCost,
+      aggregated_results: results,
+      message: `已聚合 ${subtasks.length} 个子任务结果`
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 智能推荐 Agent
+app.get('/api/agents/recommend', async (req, res) => {
+  try {
+    const { task_type, category, budget } = req.query;
+    
+    let agents = await query('SELECT * FROM agents WHERE status = ?', ['active']);
+    
+    // 按类型过滤
+    if (task_type) {
+      agents = agents.filter(a => a.type === task_type);
+    }
+    
+    // 按分类评分排序
+    agents = agents.sort((a, b) => (b.core_balance || 0) - (a.core_balance || 0));
+    
+    // 推荐前5个
+    const recommendations = agents.slice(0, 5).map(a => ({
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      core_balance: a.core_balance,
+      credit_score: a.credit_score || 100,
+      success_rate: a.success_rate || 0,
+      recommendation_reason: a.type === category ? '类型匹配' : '高余额推荐'
+    }));
+    
+    res.json({
+      task_type,
+      budget: parseInt(budget) || 0,
+      recommendations
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
