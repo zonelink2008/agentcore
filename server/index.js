@@ -179,24 +179,73 @@ async function initDB() {
       // 测试用户
       await connection.execute(
         'INSERT INTO users (id, email, wallet_address, core_balance) VALUES (?, ?, ?, ?)',
-        [uuidv4(), 'test@example.com', '0x1234567890abcdef', 1000]
+        [uuidv4(), 'test@example.com', '0x1234567890abcdef', 10000]
       );
 
-      // 测试 Agents
+      // ===== 系统预设 Agents (冷启动) =====
+      // 通用型
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'GeneralHelper', 'general', '通用助手，处理各种任务', 500, 'active']
+      );
+      
+      // 数据处理型
       await connection.execute(
         'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [uuidv4(), null, 'DataCollector', 'data', '专门收集和处理数据的Agent', 500, 'active']
       );
       await connection.execute(
         'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [uuidv4(), null, 'TaskExecutor', 'task', '执行各种任务的Agent', 300, 'active']
+        [uuidv4(), null, 'DataCleaner', 'data', '数据清洗与预处理', 300, 'active']
       );
+      
+      // 机器学习型
       await connection.execute(
         'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [uuidv4(), null, 'ModelTrainer', 'ml', '机器学习模型训练Agent', 800, 'active']
       );
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'MLEngineer', 'ml', '模型调参与优化', 600, 'active']
+      );
+      
+      // 任务执行型
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'TaskExecutor', 'task', '执行各种任务的Agent', 300, 'active']
+      );
+      
+      // 创意型
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'CreativeWriter', 'creative', '文案创作与内容生成', 400, 'active']
+      );
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'ImageGenerator', 'creative', 'AI图像生成', 500, 'active']
+      );
+      
+      // 金融型 (股票)
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'StockAnalyzer', 'stock', '股票数据分析与走势预测', 1000, 'active']
+      );
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'StockTrader', 'stock', '自动交易策略执行', 1500, 'active']
+      );
+      
+      // 金融型 (数字货币)
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'CryptoAnalyzer', 'crypto', '数字货币行情分析', 800, 'active']
+      );
+      await connection.execute(
+        'INSERT INTO agents (id, user_id, name, type, description, core_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), null, 'DeFiStrategist', 'crypto', 'DeFi 策略分析', 1200, 'active']
+      );
 
-      // 测试任务
+      // ===== 系统预设任务 (让 Agent 有事可做) =====
       await connection.execute(
         'INSERT INTO tasks (id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?)',
         ['task-1', '收集股票历史数据', '需要收集过去一年的A股历史数据', 50, 'data', 'open']
@@ -209,19 +258,17 @@ async function initDB() {
         'INSERT INTO tasks (id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?)',
         ['task-3', '文本数据清洗', '清洗和标准化文本数据', 30, 'data', 'open']
       );
-
-      // 测试数据市场
       await connection.execute(
-        'INSERT INTO data_market (id, seller_id, name, description, data_type, price, views, sales) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [uuidv4(), null, 'A股历史数据', '2020-2024年A股历史交易数据', 'stock', 100, 156, 23]
+        'INSERT INTO tasks (id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?)',
+        ['task-4', '分析苹果股票走势', '分析AAPL股票最近30天走势', 80, 'stock', 'open']
       );
       await connection.execute(
-        'INSERT INTO data_market (id, seller_id, name, description, data_type, price, views, sales) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [uuidv4(), null, '新闻情感标注数据', '带有情感标注的新闻数据集', 'text', 50, 89, 12]
+        'INSERT INTO tasks (id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?)',
+        ['task-5', '比特币价格预测', '基于历史数据预测BTC未来走势', 150, 'crypto', 'open']
       );
       await connection.execute(
-        'INSERT INTO data_market (id, seller_id, name, description, data_type, price, views, sales) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [uuidv4(), null, '图像分类数据集', '10万张图片的分类标注数据', 'image', 200, 45, 5]
+        'INSERT INTO tasks (id, title, description, reward, category, status) VALUES (?, ?, ?, ?, ?, ?)',
+        ['task-6', '撰写产品文案', '为新品撰写营销文案', 40, 'creative', 'open']
       );
     }
 
